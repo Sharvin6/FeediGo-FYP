@@ -1,0 +1,120 @@
+# =========================================
+# FeediGo FYP - Flutter Project .gitignore
+# =========================================
+
+# -----------------------------
+# Miscellaneous
+# -----------------------------
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# -----------------------------
+# IDE & Editor Settings
+# -----------------------------
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code (ignore local settings)
+.vscode/
+../.vscode/
+
+# -----------------------------
+# Flutter / Dart / Pub
+# -----------------------------
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+builds/
+pubspec.lock
+
+# -----------------------------
+# Platform Builds
+# -----------------------------
+# Android Studio build outputs
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# iOS and macOS build artifacts
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Pods/
+macos/Pods/
+macos/Flutter/ephemeral/
+ios/.symlinks/
+/ios/Flutter/App.framework
+ios/Flutter/.last_build_id
+ios/ServiceDefinitions.json
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Windows build outputs
+windows/
+# Linux build outputs
+linux/
+# Web build outputs
+web/.dart_tool/
+
+# -----------------------------
+# Symbolication & Obfuscation
+# -----------------------------
+app.*.symbols
+app.*.map.json
+
+# -----------------------------
+# Environment & Credentials
+# -----------------------------
+.env
+.env.*
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+*.crt
+
+# -----------------------------
+# Firebase / Google Services
+# -----------------------------
+google-services.json
+GoogleService-Info.plist
+
+# -----------------------------
+# Logs & Temporary Files
+# -----------------------------
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
+# -----------------------------
+# Coverage Reports
+# -----------------------------
+coverage/
+test_output/
+
+# -----------------------------
+# Others
+# -----------------------------
+# Ignore generated license file
+third_party_licenses.txt
+licenses/

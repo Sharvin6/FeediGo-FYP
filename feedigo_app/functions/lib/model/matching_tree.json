@@ -1,0 +1,415 @@
+{
+    "model_type": "decision_tree",
+    "features": [
+        "qty_ratio",
+        "distance_km",
+        "expiry_gap_days",
+        "window_overlap_min",
+        "has_coords",
+        "unit_compatible",
+        "food_type_Bakery",
+        "food_type_Beverage",
+        "food_type_Cooked Meals",
+        "food_type_Fresh Produce",
+        "food_type_Frozen / Chilled",
+        "food_type_Packaged / Canned",
+        "qty_bucket_balanced",
+        "qty_bucket_small",
+        "qty_bucket_too_large",
+        "qty_bucket_too_small"
+    ],
+    "categories_food_type": [
+        "Cooked Meals",
+        "Fresh Produce",
+        "Bakery",
+        "Packaged / Canned",
+        "Beverage",
+        "Frozen / Chilled",
+        "Dry Goods"
+    ],
+    "tree": {
+        "leaf": false,
+        "feature": "expiry_gap_days",
+        "threshold": -2.5,
+        "left": {
+            "leaf": false,
+            "feature": "qty_bucket_balanced",
+            "threshold": 0.5,
+            "left": {
+                "leaf": false,
+                "feature": "qty_bucket_small",
+                "threshold": 0.5,
+                "left": {
+                    "leaf": false,
+                    "feature": "distance_km",
+                    "threshold": 13.56850004196167,
+                    "left": {
+                        "leaf": false,
+                        "feature": "qty_ratio",
+                        "threshold": 0.38616015017032623,
+                        "left": {
+                            "leaf": false,
+                            "feature": "expiry_gap_days",
+                            "threshold": -5.5,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.21659836203022392
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.35705045278137126
+                            }
+                        },
+                        "right": {
+                            "leaf": false,
+                            "feature": "qty_ratio",
+                            "threshold": 5.640802621841431,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.5453547513630207
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.3244731741587908
+                            }
+                        }
+                    },
+                    "right": {
+                        "leaf": false,
+                        "feature": "qty_ratio",
+                        "threshold": 4.62053370475769,
+                        "left": {
+                            "leaf": false,
+                            "feature": "qty_ratio",
+                            "threshold": 3.122499942779541,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.2486727055038899
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.4750769301035054
+                            }
+                        },
+                        "right": {
+                            "leaf": false,
+                            "feature": "window_overlap_min",
+                            "threshold": 21.5,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.14920263086764568
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.24203141680646648
+                            }
+                        }
+                    }
+                },
+                "right": {
+                    "leaf": false,
+                    "feature": "distance_km",
+                    "threshold": 19.08400058746338,
+                    "left": {
+                        "leaf": true,
+                        "p1": 0.5237091271514545
+                    },
+                    "right": {
+                        "leaf": false,
+                        "feature": "qty_ratio",
+                        "threshold": 0.6225140392780304,
+                        "left": {
+                            "leaf": true,
+                            "p1": 0.4721219100432677
+                        },
+                        "right": {
+                            "leaf": true,
+                            "p1": 0.29158351919239345
+                        }
+                    }
+                }
+            },
+            "right": {
+                "leaf": false,
+                "feature": "qty_ratio",
+                "threshold": 1.3805407285690308,
+                "left": {
+                    "leaf": false,
+                    "feature": "distance_km",
+                    "threshold": 12.352999687194824,
+                    "left": {
+                        "leaf": true,
+                        "p1": 0.7057987829422487
+                    },
+                    "right": {
+                        "leaf": false,
+                        "feature": "distance_km",
+                        "threshold": 19.901000022888184,
+                        "left": {
+                            "leaf": true,
+                            "p1": 0.4555963704726434
+                        },
+                        "right": {
+                            "leaf": false,
+                            "feature": "qty_ratio",
+                            "threshold": 1.1223958134651184,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.5406407832988469
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.6799124106395307
+                            }
+                        }
+                    }
+                },
+                "right": {
+                    "leaf": false,
+                    "feature": "food_type==Packaged / Canned",
+                    "threshold": 0.5,
+                    "left": {
+                        "leaf": false,
+                        "feature": "distance_km",
+                        "threshold": 9.189499855041504,
+                        "left": {
+                            "leaf": true,
+                            "p1": 0.5999033971985186
+                        },
+                        "right": {
+                            "leaf": false,
+                            "feature": "distance_km",
+                            "threshold": 27.12950038909912,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.3755401239297113
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.5027242379865192
+                            }
+                        }
+                    },
+                    "right": {
+                        "leaf": true,
+                        "p1": 0.6469668987072025
+                    }
+                }
+            }
+        },
+        "right": {
+            "leaf": false,
+            "feature": "qty_bucket_balanced",
+            "threshold": 0.5,
+            "left": {
+                "leaf": false,
+                "feature": "qty_ratio",
+                "threshold": 0.3813031315803528,
+                "left": {
+                    "leaf": false,
+                    "feature": "distance_km",
+                    "threshold": 15.761000156402588,
+                    "left": {
+                        "leaf": false,
+                        "feature": "window_overlap_min",
+                        "threshold": 72.5,
+                        "left": {
+                            "leaf": true,
+                            "p1": 0.4998993761320183
+                        },
+                        "right": {
+                            "leaf": true,
+                            "p1": 0.6490311281848482
+                        }
+                    },
+                    "right": {
+                        "leaf": false,
+                        "feature": "expiry_gap_days",
+                        "threshold": 0.5,
+                        "left": {
+                            "leaf": false,
+                            "feature": "distance_km",
+                            "threshold": 29.546500205993652,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.4159022194459914
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.31174159151101793
+                            }
+                        },
+                        "right": {
+                            "leaf": false,
+                            "feature": "distance_km",
+                            "threshold": 27.30049991607666,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.38951467475106494
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.5920080502078752
+                            }
+                        }
+                    }
+                },
+                "right": {
+                    "leaf": false,
+                    "feature": "qty_ratio",
+                    "threshold": 5.035218238830566,
+                    "left": {
+                        "leaf": false,
+                        "feature": "qty_ratio",
+                        "threshold": 0.5036160945892334,
+                        "left": {
+                            "leaf": false,
+                            "feature": "qty_ratio",
+                            "threshold": 0.4489908665418625,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.6584460719825636
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.5399000185150898
+                            }
+                        },
+                        "right": {
+                            "leaf": false,
+                            "feature": "qty_ratio",
+                            "threshold": 0.701526552438736,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.8175075273555111
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.6794898142859364
+                            }
+                        }
+                    },
+                    "right": {
+                        "leaf": false,
+                        "feature": "expiry_gap_days",
+                        "threshold": 1.5,
+                        "left": {
+                            "leaf": false,
+                            "feature": "food_type==Frozen / Chilled",
+                            "threshold": 0.5,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.4886212322963314
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.2458270106221547
+                            }
+                        },
+                        "right": {
+                            "leaf": false,
+                            "feature": "qty_ratio",
+                            "threshold": 9.500593662261963,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.5467752586396654
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.6556468375729979
+                            }
+                        }
+                    }
+                }
+            },
+            "right": {
+                "leaf": false,
+                "feature": "expiry_gap_days",
+                "threshold": -0.5,
+                "left": {
+                    "leaf": false,
+                    "feature": "distance_km",
+                    "threshold": 13.98449993133545,
+                    "left": {
+                        "leaf": true,
+                        "p1": 0.81921750643833
+                    },
+                    "right": {
+                        "leaf": false,
+                        "feature": "distance_km",
+                        "threshold": 29.64900016784668,
+                        "left": {
+                            "leaf": false,
+                            "feature": "window_overlap_min",
+                            "threshold": 79.5,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.5504622008357601
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.7114558417129189
+                            }
+                        },
+                        "right": {
+                            "leaf": true,
+                            "p1": 0.7057987829422486
+                        }
+                    }
+                },
+                "right": {
+                    "leaf": false,
+                    "feature": "qty_ratio",
+                    "threshold": 1.5670555233955383,
+                    "left": {
+                        "leaf": false,
+                        "feature": "expiry_gap_days",
+                        "threshold": 2.5,
+                        "left": {
+                            "leaf": false,
+                            "feature": "expiry_gap_days",
+                            "threshold": 1.5,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.9237004513494427
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.7999355929474277
+                            }
+                        },
+                        "right": {
+                            "leaf": true,
+                            "p1": 0.9431602446511158
+                        }
+                    },
+                    "right": {
+                        "leaf": false,
+                        "feature": "distance_km",
+                        "threshold": 24.4714994430542,
+                        "left": {
+                            "leaf": false,
+                            "feature": "qty_ratio",
+                            "threshold": 2.0458678007125854,
+                            "left": {
+                                "leaf": true,
+                                "p1": 0.7499245245043775
+                            },
+                            "right": {
+                                "leaf": true,
+                                "p1": 0.9047272169612389
+                            }
+                        },
+                        "right": {
+                            "leaf": true,
+                            "p1": 0.6700141090546929
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "metrics": {
+        "auc": 0.6842829478436916
+    }
+}
