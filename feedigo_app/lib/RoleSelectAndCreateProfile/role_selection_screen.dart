@@ -14,16 +14,41 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   int _currentPage = 0;
 
   void _saveUserRole(String role) async {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final fromSwitch = args is Map && args['fromSwitch'] == true;
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    final email = FirebaseAuth.instance.currentUser?.email;
 
     if (uid != null) {
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'role': role,
-        'email': FirebaseAuth.instance.currentUser?.email,
-        'created_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
 
-      Navigator.pushReplacementNamed(context, '/profile_setup');
+      final baseUpdate = <String, dynamic>{
+        'role': role,
+        'email': email,
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+
+      if (!fromSwitch) {
+        baseUpdate['created_at'] = FieldValue.serverTimestamp();
+      }
+
+      await userRef.set(baseUpdate, SetOptions(merge: true));
+
+      if (fromSwitch) {
+        await userRef.collection('roleChangeHistory').add({
+          'newRole': role,
+          'timestamp': FieldValue.serverTimestamp(),
+          'triggeredBy': uid,
+        });
+      }
+
+      // forward args so profile setup knows this is a switch
+      Navigator.pushReplacementNamed(
+        context,
+        '/profile_setup',
+        arguments: {'fromSwitch': fromSwitch, 'targetRole': role},
+      );
     }
   }
 
@@ -148,7 +173,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, size: 48, color: Color(0xFFE26A2C)),
+              Icon(icon, size: 48, color: const Color(0xFFE26A2C)),
               const SizedBox(height: 12),
               Text(
                 title,

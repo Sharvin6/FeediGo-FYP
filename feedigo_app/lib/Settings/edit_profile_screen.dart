@@ -16,6 +16,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _contactNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
 
   bool _loading = false;
   bool _isOrganization = false;
@@ -43,10 +44,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _orgNameCtrl.text = orgData['organization_name'] ?? '';
         _contactNameCtrl.text = orgData['contactName'] ?? '';
         _phoneCtrl.text = orgData['phone'] ?? '';
+        _addressCtrl.text = orgData['address'] ?? '';
       } else {
         final profileData = data['profile'] ?? {};
         _contactNameCtrl.text = profileData['name'] ?? '';
         _phoneCtrl.text = profileData['phone'] ?? '';
+        _addressCtrl.text = profileData['address'] ?? '';
       }
     }
 
@@ -66,12 +69,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         "organization.organization_name": _orgNameCtrl.text.trim(),
         "organization.contactName": _contactNameCtrl.text.trim(),
         "organization.phone": _phoneCtrl.text.trim(),
+        "organization.address": _addressCtrl.text.trim(),
       });
     } else {
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         "email": _emailCtrl.text.trim(),
         "profile.name": _contactNameCtrl.text.trim(),
         "profile.phone": _phoneCtrl.text.trim(),
+        "profile.address": _addressCtrl.text.trim(),
       });
     }
 
@@ -182,6 +187,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     ? "Please enter a phone number"
                                     : null,
                       ),
+
+                      const SizedBox(height: 16),
+
+                      // Phone
+                      TextFormField(
+                        controller: _addressCtrl,
+                        decoration: const InputDecoration(
+                          labelText: "Address",
+                          prefixIcon: Icon(Icons.location_city),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator:
+                            (value) =>
+                                value!.isEmpty
+                                    ? "Please enter an address"
+                                    : null,
+                      ),
+
                       const SizedBox(height: 24),
 
                       // Save Button

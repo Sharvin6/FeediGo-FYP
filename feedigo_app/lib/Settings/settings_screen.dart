@@ -54,22 +54,26 @@ class SettingsScreen extends StatelessWidget {
             final orgName = orgData['organization_name'] ?? '';
             final contactName = orgData['contactName'] ?? '';
             final phone = orgData['phone'] ?? '';
+            final address = orgData['address'] ?? '';
 
             accountInfoWidgets = [
               _infoRow(Icons.apartment, 'Organization Name', orgName),
               _infoRow(Icons.person, 'Contact Name', contactName),
               _infoRow(Icons.email, 'Email', email),
               _infoRow(Icons.phone, 'Phone', phone),
+              _infoRow(Icons.location_city, 'Address', address),
             ];
           } else {
             final profileData = userData['profile'] ?? {};
             final name = profileData['name'] ?? '';
             final phone = profileData['phone'] ?? '';
+            final address = profileData['address'] ?? '';
 
             accountInfoWidgets = [
               _infoRow(Icons.person, 'Name', name),
               _infoRow(Icons.email, 'Email', email),
               _infoRow(Icons.phone, 'Phone', phone),
+              _infoRow(Icons.location_city, 'Address', address),
             ];
           }
 
@@ -148,8 +152,37 @@ class SettingsScreen extends StatelessWidget {
                           'Switch Role',
                           style: TextStyle(color: Colors.white),
                         ),
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/switch_role');
+                        onPressed: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder:
+                                (ctx) => AlertDialog(
+                                  title: const Text('Switch Role'),
+                                  content: const Text(
+                                    'Are you sure you want to switch your role? You will be guided to choose a new role and set up its profile.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed:
+                                          () => Navigator.pop(ctx, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Yes'),
+                                    ),
+                                  ],
+                                ),
+                          );
+
+                          if (confirmed == true) {
+                            // navigate to role selection. pass a flag so RoleSelectionScreen knows it was triggered from settings
+                            Navigator.pushNamed(
+                              context,
+                              '/role_selection',
+                              arguments: {'fromSwitch': true},
+                            );
+                          }
                         },
                       ),
                     ),

@@ -103,11 +103,12 @@ class FeediGoApp extends StatelessWidget {
             (_) => const BeneficiaryPickupScheduleScreen(),
         '/beneficiary_create_pickup':
             (_) => const BeneficiaryCreatePickupDetailsScreen(),
-            '/beneficiary_pickup_schedule_details': (_) => const BeneficiaryPickupScheduleDetailsScreen(),
-                    '/beneficiary_edit_pickup_details': (context) => const BeneficiaryEditPickupDetailsScreen(),
-                            '/beneficiary_confirm_pickup': (_) => const BeneficiaryConfirmPickupScreen(),
-
-
+        '/beneficiary_pickup_schedule_details':
+            (_) => const BeneficiaryPickupScheduleDetailsScreen(),
+        '/beneficiary_edit_pickup_details':
+            (context) => const BeneficiaryEditPickupDetailsScreen(),
+        '/beneficiary_confirm_pickup':
+            (_) => const BeneficiaryConfirmPickupScreen(),
       },
     );
   }
