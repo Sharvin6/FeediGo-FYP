@@ -43,8 +43,9 @@ class _BeneficiaryEditPickupDetailsScreenState
       return const Scaffold(body: Center(child: Text('Invalid donation id')));
     }
 
-    final donationRef =
-        FirebaseFirestore.instance.collection('donations').doc(donationId);
+    final donationRef = FirebaseFirestore.instance
+        .collection('donations')
+        .doc(donationId);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
@@ -82,8 +83,11 @@ class _BeneficiaryEditPickupDetailsScreenState
 
           final myUid = FirebaseAuth.instance.currentUser?.uid;
           final isRecipient = myUid != null && recipientId == myUid;
-          final isEditable = isRecipient &&
-              (status == 'accepted' || status == 'approved' || status == 'scheduled');
+          final isEditable =
+              isRecipient &&
+              (status == 'accepted' ||
+                  status == 'approved' ||
+                  status == 'scheduled');
 
           // prefill (only once) from existing pickupInfo
           final existingTime = asDate(d['pickupInfo']?['time']);
@@ -99,14 +103,21 @@ class _BeneficiaryEditPickupDetailsScreenState
 
           // donor contact
           final donorStream =
-              donorId.isEmpty ? null : FirebaseFirestore.instance.collection('users').doc(donorId).snapshots();
+              donorId.isEmpty
+                  ? null
+                  : FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(donorId)
+                      .snapshots();
 
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: myReqQuery.snapshots(),
             builder: (context, rSnap) {
-              final personalStatus = (rSnap.data?.docs.isNotEmpty ?? false)
-                  ? (rSnap.data!.docs.first.data()['status'] as String? ?? '')
-                  : null;
+              final personalStatus =
+                  (rSnap.data?.docs.isNotEmpty ?? false)
+                      ? (rSnap.data!.docs.first.data()['status'] as String? ??
+                          '')
+                      : null;
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -149,21 +160,27 @@ class _BeneficiaryEditPickupDetailsScreenState
                         final u = uSnap.data!.data()!;
                         final isOrg = u['isOrganization'] == true;
 
-                        final orgName = isOrg
-                            ? (u['organization']?['organization_name'] as String?) ??
-                                (u['organization']?['name'] as String?) ??
-                                ''
-                            : null;
-                        final personName = isOrg
-                            ? (u['organization']?['contactPerson'] as String?) ??
-                                (u['organization']?['contactName'] as String?) ??
-                                ''
-                            : (u['profile']?['name'] as String?) ??
-                                (u['profile']?['displayName'] as String?) ??
-                                '';
-                        final phone = isOrg
-                            ? (u['organization']?['phone'] as String?) ?? ''
-                            : (u['profile']?['phone'] as String?) ?? '';
+                        final orgName =
+                            isOrg
+                                ? (u['organization']?['organization_name']
+                                        as String?) ??
+                                    (u['organization']?['name'] as String?) ??
+                                    ''
+                                : null;
+                        final personName =
+                            isOrg
+                                ? (u['organization']?['contactPerson']
+                                        as String?) ??
+                                    (u['organization']?['contactName']
+                                        as String?) ??
+                                    ''
+                                : (u['profile']?['name'] as String?) ??
+                                    (u['profile']?['displayName'] as String?) ??
+                                    '';
+                        final phone =
+                            isOrg
+                                ? (u['organization']?['phone'] as String?) ?? ''
+                                : (u['profile']?['phone'] as String?) ?? '';
 
                         return _contactCard(
                           orgName: orgName,
@@ -190,8 +207,14 @@ class _BeneficiaryEditPickupDetailsScreenState
                         enabled: isEditable,
                         hint: 'Select pickup date',
                         icon: Icons.event,
-                        valueText: _pickedDate == null ? null : _formatDate(_pickedDate!),
-                        onTap: isEditable ? () => _pickDate(context, expiry) : null,
+                        valueText:
+                            _pickedDate == null
+                                ? null
+                                : _formatDate(_pickedDate!),
+                        onTap:
+                            isEditable
+                                ? () => _pickDate(context, expiry)
+                                : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -200,8 +223,12 @@ class _BeneficiaryEditPickupDetailsScreenState
                         enabled: isEditable,
                         hint: 'Select time',
                         icon: Icons.schedule,
-                        valueText: _pickedStart == null ? null : _formatTime(_pickedStart!),
-                        onTap: isEditable ? () => _pickStartTime(context) : null,
+                        valueText:
+                            _pickedStart == null
+                                ? null
+                                : _formatTime(_pickedStart!),
+                        onTap:
+                            isEditable ? () => _pickStartTime(context) : null,
                       ),
 
                       const SizedBox(height: 16),
@@ -221,9 +248,10 @@ class _BeneficiaryEditPickupDetailsScreenState
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.save),
                       label: const Text('Save Changes'),
-                      onPressed: (!isEditable || _saving)
-                          ? null
-                          : () => _save(
+                      onPressed:
+                          (!isEditable || _saving)
+                              ? null
+                              : () => _save(
                                 donationRef: donationRef,
                                 expiry: expiry,
                                 isRecipient: isRecipient,
@@ -254,8 +282,15 @@ class _BeneficiaryEditPickupDetailsScreenState
     _prefilled = true;
 
     if (existingTime != null) {
-      _pickedDate = DateTime(existingTime.year, existingTime.month, existingTime.day);
-      _pickedStart = TimeOfDay(hour: existingTime.hour, minute: existingTime.minute);
+      _pickedDate = DateTime(
+        existingTime.year,
+        existingTime.month,
+        existingTime.day,
+      );
+      _pickedStart = TimeOfDay(
+        hour: existingTime.hour,
+        minute: existingTime.minute,
+      );
     }
     _notesCtrl.text = existingNotes;
   }
@@ -332,21 +367,21 @@ class _BeneficiaryEditPickupDetailsScreenState
 
   // --- small ui helpers ---
   InputDecoration _inputDeco(String hint) => const InputDecoration(
-        border: OutlineInputBorder(),
-        isDense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      ).copyWith(hintText: hint);
+    border: OutlineInputBorder(),
+    isDense: true,
+    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  ).copyWith(hintText: hint);
 
   Widget _fieldLabel(String t) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          t,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      t,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        color: Colors.black87,
+      ),
+    ),
+  );
 
   Widget _PickerField({
     required String hint,
@@ -459,9 +494,12 @@ class _BeneficiaryEditPickupDetailsScreenState
             Text(error, style: const TextStyle(color: Colors.black54))
           else if (!loading) ...[
             if ((orgName ?? '').isNotEmpty) _kv('Organization Name:', orgName!),
-            if ((personName ?? '').isNotEmpty) _kv('Contact Name:', personName!),
+            if ((personName ?? '').isNotEmpty)
+              _kv('Contact Name:', personName!),
             if ((phone ?? '').isNotEmpty) _kv('Phone Number:', phone!),
-            if ((orgName ?? '').isEmpty && (personName ?? '').isEmpty && (phone ?? '').isEmpty)
+            if ((orgName ?? '').isEmpty &&
+                (personName ?? '').isEmpty &&
+                (phone ?? '').isEmpty)
               const Text('—', style: TextStyle(color: Colors.black54)),
           ],
         ],
@@ -487,23 +525,23 @@ class _BeneficiaryEditPickupDetailsScreenState
   }
 
   Widget _kv(String k, String v) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 140,
-              child: Text(
-                k,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 140,
+          child: Text(
+            k,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
             ),
-            Expanded(child: Text(v)),
-          ],
+          ),
         ),
-      );
+        Expanded(child: Text(v)),
+      ],
+    ),
+  );
 
   String _formatDate(DateTime d) {
     const m = [
@@ -530,26 +568,28 @@ class _BeneficiaryEditPickupDetailsScreenState
     return '$hh:$mm $ap';
   }
 
-  void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  void _snack(String m) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   Widget _warn(String t) => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF4E5),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.info_outline, color: Color(0xFFEF6C00)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(t, style: const TextStyle(color: Colors.black87))),
-          ],
-        ),
-      );
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF4E5),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.info_outline, color: Color(0xFFEF6C00)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(t, style: const TextStyle(color: Colors.black87))),
+      ],
+    ),
+  );
 
-  Widget _center(String t) => Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
+  Widget _center(String t) =>
+      Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
 }
 
 class _StatusChip extends StatelessWidget {
@@ -563,7 +603,7 @@ class _StatusChip extends StatelessWidget {
     Color bg, fg;
     String label;
 
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = personal ? 'Your: Accepted' : 'Approved';
@@ -571,7 +611,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'rejected' || s == 'cancelled' || s == 'declined') {
+    } else if (s == 'declined') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

@@ -43,6 +43,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
       backgroundColor: const Color(0xFFF3F5F7),
       appBar: AppBar(
         backgroundColor: orange,
+        iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
         title: const Text(
           'Requester Details',
@@ -294,7 +295,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
       for (final doc in others.docs) {
         if (doc.id == reqId) continue;
         batch.update(doc.reference, {
-          'status': 'rejected',
+          'status': 'declined',
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
@@ -313,38 +314,42 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
   Future<void> _decline(String reqId) async {
     if (_busy) return;
     setState(() => _busy = true);
+
+    final db = FirebaseFirestore.instance;
+    final donationRef = db.collection('donations').doc(donationId);
+    final reqRef = db.collection('donation_requests').doc(reqId);
+
     try {
-      final db = FirebaseFirestore.instance;
-      final donationRef = db.collection('donations').doc(donationId);
-      final reqRef = db.collection('donation_requests').doc(reqId);
-
-      await db.runTransaction((tx) async {
-        tx.update(reqRef, {
-          'status': 'declined',
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-
-        final others =
-            await db
-                .collection('donation_requests')
-                .where('donationId', isEqualTo: donationId)
-                .where('status', isEqualTo: 'pending')
-                .get();
-
-        if (others.docs.isEmpty) {
-          tx.update(donationRef, {
-            'status': 'pending',
-            'updatedAt': FieldValue.serverTimestamp(),
-            'acceptedRequestId': null,
-            'recipientId': null,
-          });
-        }
+      // 1) Mark the request as declined
+      await reqRef.update({
+        'status': 'declined',
+        'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // 2) Re-check pending requests for this donation
+      final pendingQuery =
+          await db
+              .collection('donation_requests')
+              .where('donationId', isEqualTo: donationId)
+              .where('status', isEqualTo: 'pending')
+              .get();
+
+      // 3) If none remain, update the donation doc to "available/no active requests"
+      if (pendingQuery.docs.isEmpty) {
+        await donationRef.update({
+          // pick the status your app treats as "no active requests"
+          'status': 'pending', // or 'requested' if that's your app's convention
+          'updatedAt': FieldValue.serverTimestamp(),
+          'acceptedRequestId': null,
+          'recipientId': null,
+        });
+      }
 
       if (!mounted) return;
       _snack('Request rejected.');
       Navigator.pop(context);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('Decline failed: $e\n$st');
       _snack('Failed to decline. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -25,16 +25,18 @@ class _BeneficiaryPickupScheduleScreenState
     }
 
     // Donations assigned to this recipient (beneficiary).
-    final donationsStream = FirebaseFirestore.instance
-        .collection('donations')
-        .where('recipientId', isEqualTo: uid)
-        .snapshots();
+    final donationsStream =
+        FirebaseFirestore.instance
+            .collection('donations')
+            .where('recipientId', isEqualTo: uid)
+            .snapshots();
 
     // All of THIS user's requests (to derive "Your: ..." per donation).
-    final myReqsStream = FirebaseFirestore.instance
-        .collection('donation_requests')
-        .where('recipientId', isEqualTo: uid)
-        .snapshots();
+    final myReqsStream =
+        FirebaseFirestore.instance
+            .collection('donation_requests')
+            .where('recipientId', isEqualTo: uid)
+            .snapshots();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
@@ -65,39 +67,44 @@ class _BeneficiaryPickupScheduleScreenState
           final now = DateTime.now();
 
           // Build donation list (include approved-only and scheduled)
-          final items = docs
-              .map((d) => _Donation.wrap(d.id, d.data()))
-              .where((x) {
-                final notExpired = x.expiry == null || x.expiry!.isAfter(now);
-                final isCompleted = x.status == 'completed'; // exclude
-                final isApprovedOrScheduled =
-                    x.status == 'approved' || x.status == 'accepted' || x.status == 'scheduled';
+          final items =
+              docs.map((d) => _Donation.wrap(d.id, d.data())).where((x) {
+                  final notExpired = x.expiry == null || x.expiry!.isAfter(now);
+                  final isCompleted = x.status == 'completed'; // exclude
+                  final isApprovedOrScheduled =
+                      x.status == 'approved' ||
+                      x.status == 'accepted' ||
+                      x.status == 'scheduled';
 
-                // show approved (with or without time) + scheduled, but NEVER completed
-                return !isCompleted && notExpired && (x.pickupTime != null || isApprovedOrScheduled);
-              })
-              .toList()
-            ..sort((a, b) {
-              final ta = a.pickupTime;
-              final tb = b.pickupTime;
-              if (ta == null && tb == null) return a.title.compareTo(b.title);
-              if (ta == null) return 1;
-              if (tb == null) return -1;
-              return ta.compareTo(tb);
-            });
+                  // show approved (with or without time) + scheduled, but NEVER completed
+                  return !isCompleted &&
+                      notExpired &&
+                      (x.pickupTime != null || isApprovedOrScheduled);
+                }).toList()
+                ..sort((a, b) {
+                  final ta = a.pickupTime;
+                  final tb = b.pickupTime;
+                  if (ta == null && tb == null)
+                    return a.title.compareTo(b.title);
+                  if (ta == null) return 1;
+                  if (tb == null) return -1;
+                  return ta.compareTo(tb);
+                });
 
-          final completedItems = docs
-              .map((d) => _Donation.wrap(d.id, d.data()))
-              .where((x) => x.status == 'completed')
-              .toList()
-            ..sort((a, b) {
-              final ta = a.pickupTime;
-              final tb = b.pickupTime;
-              if (ta == null && tb == null) return b.title.compareTo(a.title);
-              if (ta == null) return 1;
-              if (tb == null) return -1;
-              return tb.compareTo(ta); // newest first
-            });
+          final completedItems =
+              docs
+                  .map((d) => _Donation.wrap(d.id, d.data()))
+                  .where((x) => x.status == 'completed')
+                  .toList()
+                ..sort((a, b) {
+                  final ta = a.pickupTime;
+                  final tb = b.pickupTime;
+                  if (ta == null && tb == null)
+                    return b.title.compareTo(a.title);
+                  if (ta == null) return 1;
+                  if (tb == null) return -1;
+                  return tb.compareTo(ta); // newest first
+                });
 
           if (items.isEmpty) return const _EmptyState();
 
@@ -113,7 +120,10 @@ class _BeneficiaryPickupScheduleScreenState
                   final m = doc.data();
                   final did = (m['donationId'] ?? '').toString();
                   final st = (m['status'] ?? '').toString();
-                  final ts = _asDate(m['updatedAt']) ?? _asDate(m['createdAt']) ?? DateTime.fromMillisecondsSinceEpoch(0);
+                  final ts =
+                      _asDate(m['updatedAt']) ??
+                      _asDate(m['createdAt']) ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
                   final prev = latestTs[did];
                   if (prev == null || ts.isAfter(prev)) {
                     latestTs[did] = ts;
@@ -132,9 +142,14 @@ class _BeneficiaryPickupScheduleScreenState
                 (x) => x.pickupTime != null && _day(x.pickupTime!) == tomorrow,
               );
               final laterItems = items.where(
-                (x) => x.pickupTime != null && _day(x.pickupTime!) != today && _day(x.pickupTime!) != tomorrow,
+                (x) =>
+                    x.pickupTime != null &&
+                    _day(x.pickupTime!) != today &&
+                    _day(x.pickupTime!) != tomorrow,
               );
-              final unscheduledApproved = items.where((x) => x.pickupTime == null);
+              final unscheduledApproved = items.where(
+                (x) => x.pickupTime == null,
+              );
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -152,10 +167,13 @@ class _BeneficiaryPickupScheduleScreenState
                     const SizedBox(height: 14),
                   ],
                   if (tomorrowItems.isNotEmpty) ...[
-                    _sectionHeader('Tomorrow - ${_longDate(now.add(const Duration(days: 1)))}'),
+                    _sectionHeader(
+                      'Tomorrow - ${_longDate(now.add(const Duration(days: 1)))}',
+                    ),
                     const SizedBox(height: 8),
                     ...tomorrowItems.map(
-                      (x) => _cardFor(x, personalStatus: myStatusByDonation[x.id]),
+                      (x) =>
+                          _cardFor(x, personalStatus: myStatusByDonation[x.id]),
                     ),
                     const SizedBox(height: 14),
                   ],
@@ -163,7 +181,8 @@ class _BeneficiaryPickupScheduleScreenState
                     _sectionHeader('Upcoming'),
                     const SizedBox(height: 8),
                     ...laterItems.map(
-                      (x) => _cardFor(x, personalStatus: myStatusByDonation[x.id]),
+                      (x) =>
+                          _cardFor(x, personalStatus: myStatusByDonation[x.id]),
                     ),
                     const SizedBox(height: 14),
                   ],
@@ -202,13 +221,13 @@ class _BeneficiaryPickupScheduleScreenState
   // ---------- widgets ----------
 
   Widget _sectionHeader(String t) => Text(
-        t,
-        style: const TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 14,
-          color: Colors.black87,
-        ),
-      );
+    t,
+    style: const TextStyle(
+      fontWeight: FontWeight.w800,
+      fontSize: 14,
+      color: Colors.black87,
+    ),
+  );
 
   Widget _cardFor(
     _Donation d, {
@@ -260,8 +279,10 @@ class _BeneficiaryPickupScheduleScreenState
           ),
           const SizedBox(height: 6),
 
-          if (timeLabel != null) Text(timeLabel, style: const TextStyle(color: Colors.black87)),
-          if (d.pickupPlace != null && d.pickupPlace!.isNotEmpty) Text(d.pickupPlace!, style: const TextStyle(color: Colors.black87)),
+          if (timeLabel != null)
+            Text(timeLabel, style: const TextStyle(color: Colors.black87)),
+          if (d.pickupPlace != null && d.pickupPlace!.isNotEmpty)
+            Text(d.pickupPlace!, style: const TextStyle(color: Colors.black87)),
 
           if (fbName.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -297,11 +318,12 @@ class _BeneficiaryPickupScheduleScreenState
               // Always: donation post details
               _SmallButton(
                 label: 'View Donation Post',
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  '/beneficiary_donation_details',
-                  arguments: d.id,
-                ),
+                onTap:
+                    () => Navigator.pushNamed(
+                      context,
+                      '/beneficiary_donation_details',
+                      arguments: d.id,
+                    ),
               ),
 
               // Only one of these shows at a time:
@@ -312,22 +334,32 @@ class _BeneficiaryPickupScheduleScreenState
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: () {
-                    Navigator.pushNamed(context, '/beneficiary_create_pickup_details', arguments: d.id);
+                    Navigator.pushNamed(
+                      context,
+                      '/beneficiary_create_pickup_details',
+                      arguments: d.id,
+                    );
                   },
                 ),
 
               if (canViewSchedule)
                 _SmallButton(
                   label: 'View Schedule',
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    '/beneficiary_pickup_schedule_details',
-                    arguments: d.id,
-                  ),
+                  onTap:
+                      () => Navigator.pushNamed(
+                        context,
+                        '/beneficiary_pickup_schedule_details',
+                        arguments: d.id,
+                      ),
                 ),
             ],
           ),
@@ -350,7 +382,9 @@ class _BeneficiaryPickupScheduleScreenState
                   backgroundColor: const Color(0xFFE26A2C),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 child: const Text('Mark Complete'),
               ),
@@ -361,7 +395,8 @@ class _BeneficiaryPickupScheduleScreenState
     );
   }
 
-  Widget _center(String t) => Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
+  Widget _center(String t) =>
+      Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
 
   // ---------- actions ----------
 
@@ -390,9 +425,13 @@ class _BeneficiaryPickupScheduleScreenState
 
       await batch.commit();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marked as completed.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Marked as completed.')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to complete: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to complete: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -507,7 +546,7 @@ class _StatusChip extends StatelessWidget {
     Color bg, fg;
     String label;
 
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = personal ? 'Your: Accepted' : 'Approved';
@@ -515,7 +554,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'rejected' || s == 'cancelled' || s == 'declined') {
+    } else if (s == 'declined') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';
@@ -586,13 +625,17 @@ class _Donation {
       id: id,
       title: (d['title'] ?? d['foodName'] ?? 'Donation').toString(),
       status: (d['status'] ?? 'pending').toString().toLowerCase(),
-      foodBankName: (d['foodBankName'] ?? d['organizationName'] ?? '').toString(),
+      foodBankName:
+          (d['foodBankName'] ?? d['organizationName'] ?? '').toString(),
       pickupAddress: (pickup['address'] ?? '').toString(),
       pickupPlace: (pickup['place'] ?? pickup['locationName'] ?? '').toString(),
       pickupTime: _asDate(pickup['time']),
       pickupEndTime: _asDate(pickup['endTime']),
       expiry: _asDate(d['expiryAt']),
-      acceptedRequestId: (d['acceptedRequestId'] ?? '').toString().isEmpty ? null : (d['acceptedRequestId'] as String),
+      acceptedRequestId:
+          (d['acceptedRequestId'] ?? '').toString().isEmpty
+              ? null
+              : (d['acceptedRequestId'] as String),
     );
   }
 }

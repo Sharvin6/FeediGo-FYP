@@ -3,8 +3,30 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class BeneficiaryRequestHistoryScreen extends StatelessWidget {
+class BeneficiaryRequestHistoryScreen extends StatefulWidget {
   const BeneficiaryRequestHistoryScreen({super.key});
+
+  @override
+  State<BeneficiaryRequestHistoryScreen> createState() =>
+      _BeneficiaryRequestHistoryScreenState();
+}
+
+class _BeneficiaryRequestHistoryScreenState
+    extends State<BeneficiaryRequestHistoryScreen> {
+  static const allKey = 'all';
+
+  /// Map of display label -> stored value in Firestore.
+  /// Adjust values if your backend uses different strings.
+  final Map<String, String> _statusOptions = {
+    'All': allKey,
+    'Requested': 'pending',
+    'Accepted': 'accepted',
+    'Scheduled': 'scheduled',
+    'Completed': 'completed',
+    'Declined': 'declined',
+  };
+
+  String _selectedStatus = allKey;
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +37,7 @@ class BeneficiaryRequestHistoryScreen extends StatelessWidget {
       return const Scaffold(body: Center(child: Text('Not signed in')));
     }
 
-    // All requests by this recipient (order on server)
+    // Keep query simple (recipientId + orderBy). We will filter status client-side
     final requestsQuery = FirebaseFirestore.instance
         .collection('donation_requests')
         .where('recipientId', isEqualTo: uid)
@@ -36,59 +58,150 @@ class BeneficiaryRequestHistoryScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: requestsQuery.snapshots(),
-        builder: (context, snap) {
-          if (snap.hasError) {
-            return Center(child: Text('Error: ${snap.error}'));
-          }
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Column(
+        children: [
+          // Filter row
+          Container(
+            color: const Color(0xFFF3F5F7),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 4,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedStatus,
+                          isExpanded: true,
+                          items:
+                              _statusOptions.entries.map((e) {
+                                return DropdownMenuItem<String>(
+                                  value: e.value,
+                                  child: Text(e.key),
+                                );
+                              }).toList(),
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() {
+                              _selectedStatus = v;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  tooltip: 'Clear filter',
+                  onPressed: () {
+                    if (_selectedStatus != allKey) {
+                      setState(() {
+                        _selectedStatus = allKey;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.clear),
+                ),
+              ],
+            ),
+          ),
 
-          final reqDocs = (snap.data?.docs ?? []);
-          if (reqDocs.isEmpty) return const _EmptyState();
+          // Streamed list (status filtering done client-side to avoid composite index)
+          Expanded(
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: requestsQuery.snapshots(),
+              builder: (context, snap) {
+                if (snap.hasError) {
+                  return Center(child: Text('Error: ${snap.error}'));
+                }
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            itemCount: reqDocs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, i) {
-              final req = reqDocs[i].data();
-              final donationId = (req['donationId'] as String?) ?? '';
-              if (donationId.isEmpty) return const SizedBox.shrink();
+                final allReqDocs = (snap.data?.docs ?? []).toList();
 
-              // Pull donation for richer card content + global status
-              return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                future:
-                    FirebaseFirestore.instance
-                        .collection('donations')
-                        .doc(donationId)
-                        .get(),
-                builder: (context, donationSnap) {
-                  final loading =
-                      donationSnap.connectionState == ConnectionState.waiting;
-                  final donation =
-                      (donationSnap.data?.data() ?? <String, dynamic>{});
+                // Apply status filter client-side (avoid composite index)
+                final filteredDocs =
+                    _selectedStatus == allKey
+                        ? allReqDocs
+                        : allReqDocs.where((d) {
+                          final s =
+                              (d.data()['status'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
+                          return s == _selectedStatus.toLowerCase();
+                        }).toList();
 
-                  return _RequestCard(
-                    isLoading: loading && !donationSnap.hasData,
-                    donationId: donationId,
-                    requestData: req,
-                    donationData: donation,
-                    onViewDetails: () {
-                      Navigator.pushNamed(
-                        context,
-                        '/beneficiary_donation_details',
-                        arguments: donationId,
-                      );
-                    },
+                if (filteredDocs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      _selectedStatus == allKey
+                          ? 'No requests yet'
+                          : 'No requests with selected status.',
+                      style: const TextStyle(color: Colors.black54),
+                    ),
                   );
-                },
-              );
-            },
-          );
-        },
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  itemCount: filteredDocs.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    final req = filteredDocs[i].data();
+                    final donationId = (req['donationId'] as String?) ?? '';
+                    if (donationId.isEmpty) return const SizedBox.shrink();
+
+                    // Pull donation for richer card content + global status
+                    return FutureBuilder<
+                      DocumentSnapshot<Map<String, dynamic>>
+                    >(
+                      future:
+                          FirebaseFirestore.instance
+                              .collection('donations')
+                              .doc(donationId)
+                              .get(),
+                      builder: (context, donationSnap) {
+                        final loading =
+                            donationSnap.connectionState ==
+                            ConnectionState.waiting;
+                        final donation =
+                            (donationSnap.data?.data() ?? <String, dynamic>{});
+
+                        return _RequestCard(
+                          isLoading: loading && !donationSnap.hasData,
+                          donationId: donationId,
+                          requestData: req,
+                          donationData: donation,
+                          onViewDetails: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/beneficiary_donation_details',
+                              arguments: donationId,
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -244,7 +357,7 @@ class _StatusChip extends StatelessWidget {
     Color bg, fg;
     String label;
 
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = personal ? 'Your: Accepted' : 'Approved';
@@ -252,7 +365,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'rejected' || s == 'declined' || s == 'cancelled') {
+    } else if (s == 'declined' || s == 'rejected') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

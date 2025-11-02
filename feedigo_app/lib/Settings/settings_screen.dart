@@ -189,20 +189,6 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-
-                // About Section
-                _sectionCard(
-                  children: const [
-                    ListTile(
-                      leading: Icon(Icons.info_outline, color: Colors.orange),
-                      title: Text('About FeediGo'),
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.privacy_tip, color: Colors.orange),
-                      title: Text('Privacy Policy'),
-                    ),
-                  ],
-                ),
               ],
             ),
           );

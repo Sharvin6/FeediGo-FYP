@@ -2,8 +2,29 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class DonationHistoryScreen extends StatelessWidget {
+class DonationHistoryScreen extends StatefulWidget {
   const DonationHistoryScreen({super.key});
+
+  @override
+  State<DonationHistoryScreen> createState() => _DonationHistoryScreenState();
+}
+
+class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
+  // "All" means no status filter applied
+  static const allKey = 'all';
+
+  // Status options: map display label -> stored value
+  // Adjust values if your Firestore stores different strings (e.g. "Completed" vs "completed")
+  final Map<String, String> _statusOptions = {
+    'All': allKey,
+    'Pending': 'pending',
+    'Requested': 'requested',
+    'Approved': 'accepted',
+    'Scheduled': 'scheduled',
+    'Completed': 'completed',
+  };
+
+  String _selectedStatus = allKey;
 
   @override
   Widget build(BuildContext context) {
@@ -14,9 +35,17 @@ class DonationHistoryScreen extends StatelessWidget {
       return const Scaffold(body: Center(child: Text('Not signed in')));
     }
 
-    final donationsQuery = FirebaseFirestore.instance
+    // Build the base query and then optionally add the status filter
+    Query<Map<String, dynamic>> donationsQuery = FirebaseFirestore.instance
         .collection('donations')
         .where('donorId', isEqualTo: uid);
+
+    if (_selectedStatus != allKey) {
+      donationsQuery = donationsQuery.where(
+        'status',
+        isEqualTo: _selectedStatus,
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
@@ -33,77 +62,148 @@ class DonationHistoryScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: donationsQuery.snapshots(),
-        builder: (context, snap) {
-          if (snap.hasError) {
-            return Center(child: Text('Error: ${snap.error}'));
-          }
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Column(
+        children: [
+          // Filter row
+          Container(
+            color: const Color(0xFFF3F5F7),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 4,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedStatus,
+                          isExpanded: true,
+                          items:
+                              _statusOptions.entries.map((e) {
+                                return DropdownMenuItem<String>(
+                                  value: e.value,
+                                  child: Text(e.key),
+                                );
+                              }).toList(),
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() {
+                              _selectedStatus = v;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  tooltip: 'Clear filter',
+                  onPressed: () {
+                    setState(() {
+                      _selectedStatus = allKey;
+                    });
+                  },
+                  icon: const Icon(Icons.clear),
+                ),
+              ],
+            ),
+          ),
 
-          final docs =
-              (snap.data?.docs ?? []).toList()..sort((a, b) {
-                final ta = a.data()['createdAt'] as Timestamp?;
-                final tb = b.data()['createdAt'] as Timestamp?;
-                return (tb?.toDate() ?? DateTime(0)).compareTo(
-                  ta?.toDate() ?? DateTime(0),
+          // Expanded list area
+          Expanded(
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: donationsQuery.snapshots(),
+              builder: (context, snap) {
+                if (snap.hasError) {
+                  return Center(child: Text('Error: ${snap.error}'));
+                }
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final docs =
+                    (snap.data?.docs ?? []).toList()..sort((a, b) {
+                      final ta = a.data()['createdAt'] as Timestamp?;
+                      final tb = b.data()['createdAt'] as Timestamp?;
+                      return (tb?.toDate() ?? DateTime(0)).compareTo(
+                        ta?.toDate() ?? DateTime(0),
+                      );
+                    });
+
+                if (docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      _selectedStatus == allKey
+                          ? 'No donation history.'
+                          : 'No donations with selected status.',
+                      style: const TextStyle(color: Colors.black54),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) {
+                    final data = docs[i].data();
+                    final donationId = docs[i].id;
+                    return _DonationTile(
+                      id: donationId,
+                      data: data,
+                      onOpen:
+                          () => Navigator.pushNamed(
+                            context,
+                            '/donation_details',
+                            arguments: donationId,
+                          ),
+                      onEdit:
+                          () => Navigator.pushNamed(
+                            context,
+                            '/edit_donation',
+                            arguments: donationId,
+                          ),
+                      onDelete: () async {
+                        final ok = await _confirmDelete(context);
+                        if (ok == true) {
+                          await FirebaseFirestore.instance
+                              .collection('donations')
+                              .doc(donationId)
+                              .delete();
+                        }
+                      },
+                      onViewRequester: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/requestor_details',
+                          arguments: donationId,
+                        );
+                      },
+                      onViewSchedule: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/donor_view_schedule',
+                          arguments: donationId,
+                        );
+                      },
+                    );
+                  },
                 );
-              });
-
-          if (docs.isEmpty) {
-            return const Center(child: Text('No donation history.'));
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, i) {
-              final data = docs[i].data();
-              final donationId = docs[i].id;
-              return _DonationTile(
-                id: donationId,
-                data: data,
-                onOpen:
-                    () => Navigator.pushNamed(
-                      context,
-                      '/donation_details',
-                      arguments: donationId,
-                    ),
-                onEdit:
-                    () => Navigator.pushNamed(
-                      context,
-                      '/edit_donation',
-                      arguments: donationId,
-                    ),
-                onDelete: () async {
-                  final ok = await _confirmDelete(context);
-                  if (ok == true) {
-                    await FirebaseFirestore.instance
-                        .collection('donations')
-                        .doc(donationId)
-                        .delete();
-                  }
-                },
-                onViewRequester: () {
-                  Navigator.pushNamed(
-                    context,
-                    '/requestor_details',
-                    arguments: donationId,
-                  );
-                },
-                onViewSchedule: () {
-                  Navigator.pushNamed(
-                    context,
-                    '/donor_view_schedule',
-                    arguments: donationId,
-                  );
-                },
-              );
-            },
-          );
-        },
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -131,6 +231,7 @@ class DonationHistoryScreen extends StatelessWidget {
 }
 
 // ----------------------- Donation Tile -----------------------
+// (kept mostly the same as you provided; shows servings, status, buttons)
 
 class _DonationTile extends StatelessWidget {
   final String id;
@@ -148,7 +249,7 @@ class _DonationTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onViewRequester,
-    required this.onViewSchedule, // NEW
+    required this.onViewSchedule,
   });
 
   @override
@@ -236,19 +337,25 @@ class _DonationTile extends StatelessWidget {
                   style: const TextStyle(color: Colors.black45, fontSize: 12),
                 ),
               ),
+
+              // View
               _miniBtn(icon: Icons.visibility_outlined, onTap: onOpen),
               const SizedBox(width: 8),
-              _miniBtn(icon: Icons.edit_outlined, onTap: onEdit),
-              const SizedBox(width: 8),
-              _miniBtn(
-                icon: Icons.delete_outline,
-                onTap: onDelete,
-                danger: true,
-              ),
+
+              // Edit and delete— only when pending
+              if (status.toLowerCase() == 'pending') ...[
+                _miniBtn(icon: Icons.edit_outlined, onTap: onEdit),
+                _miniBtn(
+                  icon: Icons.delete_outline,
+                  onTap: onDelete,
+                  danger: true,
+                ),
+                const SizedBox(width: 8),
+              ],
             ],
           ),
 
-          // ✅ Extra button when requested/accepted
+          // Extra button when requested/accepted
           if (status.toLowerCase() == 'requested' ||
               status.toLowerCase() == 'accepted') ...[
             const SizedBox(height: 10),
@@ -262,7 +369,7 @@ class _DonationTile extends StatelessWidget {
             ),
           ],
 
-          // ✅ Show "View Schedule" only when status == scheduled
+          // Show "View Schedule" when scheduled/completed-like
           if (isScheduled || isCompleted) ...[
             const SizedBox(height: 10),
             SizedBox(
@@ -354,7 +461,7 @@ class _StatusChip extends StatelessWidget {
     final s = status.toLowerCase();
     Color bg, fg;
     String label;
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = 'Approved';
@@ -362,7 +469,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = 'Completed';
-    } else if (s == 'rejected' || s == 'cancelled') {
+    } else if (s == 'declined') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = 'Rejected';

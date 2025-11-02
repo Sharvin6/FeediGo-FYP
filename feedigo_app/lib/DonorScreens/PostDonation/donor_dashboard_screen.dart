@@ -77,10 +77,14 @@ class DonorDashboardScreen extends StatelessWidget {
                       (d) => (d.data()['status'] ?? 'pending') != 'completed',
                     )
                     .length;
-            final mealsHelped = docs.fold<int>(
-              0,
-              (acc, d) => acc + ((d.data()['servings'] as int?) ?? 0),
-            );
+            final mealsHelped = docs.fold<int>(0, (acc, d) {
+              final data = d.data();
+              final status = (data['status'] ?? 'pending') as String;
+              if (status == 'completed') {
+                return acc + ((data['servings'] as int?) ?? 1);
+              }
+              return acc;
+            });
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -373,15 +377,22 @@ class _DonationTile extends StatelessWidget {
                   style: const TextStyle(color: Colors.black45, fontSize: 12),
                 ),
               ),
+
+              // View
               _miniBtn(icon: Icons.visibility_outlined, onTap: onOpen),
               const SizedBox(width: 8),
-              _miniBtn(icon: Icons.edit_outlined, onTap: onEdit),
-              const SizedBox(width: 8),
-              _miniBtn(
-                icon: Icons.delete_outline,
-                onTap: onDelete,
-                danger: true,
-              ),
+
+              // Edit and delete— only when pending
+              if (status.toLowerCase() == 'pending') ...[
+                _miniBtn(icon: Icons.edit_outlined, onTap: onEdit),
+                _miniBtn(
+                  icon: Icons.delete_outline,
+                  onTap: onDelete,
+                  danger: true,
+                ),
+                const SizedBox(width: 8),
+              ],
+
             ],
           ),
 
@@ -491,7 +502,7 @@ class _StatusChip extends StatelessWidget {
     final s = status.toLowerCase();
     Color bg, fg;
     String label;
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = 'Approved';
@@ -499,7 +510,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = 'Completed';
-    } else if (s == 'rejected' || s == 'cancelled') {
+    } else if (s == 'declined') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = 'Rejected';

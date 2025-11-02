@@ -68,7 +68,10 @@ class _ConfirmPickupScreenState extends State<ConfirmPickupScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
       appBar: AppBar(
-        title: Text(_readOnly ? 'Pickup Proof' : 'Confirm Pickup'),
+        title: Text(
+          _readOnly ? 'Pickup Proof' : 'Confirm Pickup',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+        ),
         backgroundColor: orange,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),

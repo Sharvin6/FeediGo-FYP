@@ -601,7 +601,7 @@ class _StatusChip extends StatelessWidget {
     Color bg, fg;
     String label;
 
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = personal ? 'Your: Accepted' : 'Approved';
@@ -609,7 +609,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'rejected' || s == 'cancelled' || s == 'declined') {
+    } else if (s == 'declined') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

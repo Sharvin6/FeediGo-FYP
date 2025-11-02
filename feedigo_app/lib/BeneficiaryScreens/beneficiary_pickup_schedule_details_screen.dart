@@ -31,8 +31,9 @@ class _BeneficiaryPickupScheduleDetailsScreenState
       return const Scaffold(body: Center(child: Text('Invalid donation id')));
     }
 
-    final donationRef =
-        FirebaseFirestore.instance.collection('donations').doc(donationId);
+    final donationRef = FirebaseFirestore.instance
+        .collection('donations')
+        .doc(donationId);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
@@ -75,8 +76,11 @@ class _BeneficiaryPickupScheduleDetailsScreenState
           final isRecipient = myUid != null && recipientId == myUid;
 
           // Allow edit when accepted/scheduled (NOT completed)
-          final canEdit = isRecipient &&
-              (status == 'accepted' || status == 'approved' || status == 'scheduled');
+          final canEdit =
+              isRecipient &&
+              (status == 'accepted' ||
+                  status == 'approved' ||
+                  status == 'scheduled');
 
           // personal status (Your: ...)
           final myReqQuery = FirebaseFirestore.instance
@@ -87,19 +91,26 @@ class _BeneficiaryPickupScheduleDetailsScreenState
 
           final scheduledTime = asDate(d['pickupInfo']?['time']);
 
-          final donorStream = donorId.isEmpty
-              ? null
-              : FirebaseFirestore.instance.collection('users').doc(donorId).snapshots();
+          final donorStream =
+              donorId.isEmpty
+                  ? null
+                  : FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(donorId)
+                      .snapshots();
 
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: myReqQuery.snapshots(),
             builder: (context, rSnap) {
               final rawPersonalStatus =
                   (rSnap.data?.docs.isNotEmpty ?? false)
-                      ? (rSnap.data!.docs.first.data()['status'] as String? ?? '')
+                      ? (rSnap.data!.docs.first.data()['status'] as String? ??
+                          '')
                       : '';
               final effectivePersonalStatus =
-                  (rawPersonalStatus.isEmpty) ? (isRecipient ? status : '') : rawPersonalStatus;
+                  (rawPersonalStatus.isEmpty)
+                      ? (isRecipient ? status : '')
+                      : rawPersonalStatus;
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -125,7 +136,8 @@ class _BeneficiaryPickupScheduleDetailsScreenState
                             personName: null,
                             phone: null,
                             loading: false,
-                            error: 'Unable to load donor contact at the moment.',
+                            error:
+                                'Unable to load donor contact at the moment.',
                           );
                         }
                         if (!uSnap.hasData || !uSnap.data!.exists) {
@@ -139,20 +151,27 @@ class _BeneficiaryPickupScheduleDetailsScreenState
                         final u = uSnap.data!.data()!;
                         final isOrg = u['isOrganization'] == true;
 
-                        final orgName = isOrg
-                            ? (u['organization']?['organization_name'] as String?) ??
-                                (u['organization']?['name'] as String?) ??
-                                ''
-                            : null;
-                        final personName = isOrg
-                            ? (u['organization']?['contactPerson'] as String?) ??
-                                (u['organization']?['contactName'] as String?) ??
-                                ''
-                            : (u['profile']?['name'] as String?) ??
-                                (u['profile']?['displayName'] as String?) ??
-                                '';
+                        final orgName =
+                            isOrg
+                                ? (u['organization']?['organization_name']
+                                        as String?) ??
+                                    (u['organization']?['name'] as String?) ??
+                                    ''
+                                : null;
+                        final personName =
+                            isOrg
+                                ? (u['organization']?['contactPerson']
+                                        as String?) ??
+                                    (u['organization']?['contactName']
+                                        as String?) ??
+                                    ''
+                                : (u['profile']?['name'] as String?) ??
+                                    (u['profile']?['displayName'] as String?) ??
+                                    '';
                         final phone =
-                            isOrg ? (u['organization']?['phone'] as String?) ?? '' : (u['profile']?['phone'] as String?) ?? '';
+                            isOrg
+                                ? (u['organization']?['phone'] as String?) ?? ''
+                                : (u['profile']?['phone'] as String?) ?? '';
 
                         return _contactCard(
                           orgName: orgName,
@@ -204,18 +223,19 @@ class _BeneficiaryPickupScheduleDetailsScreenState
                               ),
                             ),
                             ElevatedButton.icon(
-                              onPressed: status == 'scheduled'
-                                  ? () {
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/confirm_pickup',
-                                        arguments: {
-                                          'donationId': donationId,
-                                          'readOnly': false,
-                                        },
-                                      );
-                                    }
-                                  : null,
+                              onPressed:
+                                  status == 'scheduled'
+                                      ? () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/confirm_pickup',
+                                          arguments: {
+                                            'donationId': donationId,
+                                            'readOnly': false,
+                                          },
+                                        );
+                                      }
+                                      : null,
                               icon: const Icon(Icons.check_circle_outline),
                               label: const Text('Confirm Pickup'),
                               style: ElevatedButton.styleFrom(
@@ -289,15 +309,21 @@ class _BeneficiaryPickupScheduleDetailsScreenState
                     children: [
                       _fieldLabel('Pickup Date'),
                       _readOnlyField(
-                        value: scheduledTime == null ? '-' : _formatDate(scheduledTime),
+                        value:
+                            scheduledTime == null
+                                ? '-'
+                                : _formatDate(scheduledTime),
                         icon: Icons.event,
                       ),
                       const SizedBox(height: 14),
                       _fieldLabel('Pickup Time'),
                       _readOnlyField(
-                        value: scheduledTime == null
-                            ? '-'
-                            : _formatTimeOfDay(TimeOfDay.fromDateTime(scheduledTime)),
+                        value:
+                            scheduledTime == null
+                                ? '-'
+                                : _formatTimeOfDay(
+                                  TimeOfDay.fromDateTime(scheduledTime),
+                                ),
                         icon: Icons.schedule,
                       ),
                       if (notes.isNotEmpty) ...[
@@ -396,7 +422,8 @@ class _BeneficiaryPickupScheduleDetailsScreenState
             Text(error, style: const TextStyle(color: Colors.black54)),
           ] else if (!loading) ...[
             if ((orgName ?? '').isNotEmpty) _kv('Organization Name:', orgName!),
-            if ((personName ?? '').isNotEmpty) _kv('Contact Name:', personName!),
+            if ((personName ?? '').isNotEmpty)
+              _kv('Contact Name:', personName!),
             if ((phone ?? '').isNotEmpty) _kv('Phone Number:', phone!),
             if ((orgName ?? '').isEmpty &&
                 (personName ?? '').isEmpty &&
@@ -418,7 +445,10 @@ class _BeneficiaryPickupScheduleDetailsScreenState
           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 
@@ -431,7 +461,9 @@ class _BeneficiaryPickupScheduleDetailsScreenState
       ),
       child: Row(
         children: [
-          Expanded(child: Text(value, style: const TextStyle(color: Colors.black87))),
+          Expanded(
+            child: Text(value, style: const TextStyle(color: Colors.black87)),
+          ),
           Icon(icon, color: Colors.orange),
         ],
       ),
@@ -451,34 +483,34 @@ class _BeneficiaryPickupScheduleDetailsScreenState
   }
 
   Widget _fieldLabel(String t) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          t,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      t,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        color: Colors.black87,
+      ),
+    ),
+  );
 
   Widget _kv(String k, String v) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 140,
-              child: Text(
-                k,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 140,
+          child: Text(
+            k,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
             ),
-            Expanded(child: Text(v)),
-          ],
+          ),
         ),
-      );
+        Expanded(child: Text(v)),
+      ],
+    ),
+  );
 
   String _formatDate(DateTime d) {
     const m = [
@@ -505,7 +537,8 @@ class _BeneficiaryPickupScheduleDetailsScreenState
     return '$hh:$mm $ap';
   }
 
-  Widget _center(String t) => Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
+  Widget _center(String t) =>
+      Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
 }
 
 class _StatusChip extends StatelessWidget {
@@ -519,7 +552,7 @@ class _StatusChip extends StatelessWidget {
     Color bg, fg;
     String label;
 
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = personal ? 'Your: Accepted' : 'Approved';
@@ -527,7 +560,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'rejected' || s == 'cancelled' || s == 'declined') {
+    } else if (s == 'declined') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

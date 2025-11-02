@@ -13,10 +13,10 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // shared
+  // flags
   bool _isOrg = false;
   bool _loading = false;
-  String? _role; // Donor / Food Bank / Beneficiary
+  String? _role;
   String? _error;
 
   // route args
@@ -40,12 +40,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   void initState() {
     super.initState();
-    // route args may not be available immediately, fetch after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map) {
         _fromSwitch = args['fromSwitch'] == true;
-        _targetRole = args['targetRole'] as String?; // optional
+        _targetRole = args['targetRole'] as String?;
       }
       _fetchRoleAndPrefill();
     });
@@ -118,9 +117,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         _pickupAddrCtrl.text = (org['address'] as String?) ?? '';
       }
 
-      setState(() {
-        _error = null;
-      });
+      setState(() => _error = null);
     } on TimeoutException {
       if (!mounted) return;
       setState(() {
@@ -128,15 +125,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = 'Failed to load your role: $e';
-      });
+      setState(() => _error = 'Failed to load your role: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  /// Show a confirmation dialog when the user has requested destructive deletion.
   Future<bool> _confirmRemoveOldData() async {
     if (!_fromSwitch || !_removeOldData) return true;
     final r = await showDialog<bool>(
@@ -146,7 +140,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           title: const Text('Remove old role data?'),
           content: const Text(
             'You chose to remove your previous role data. This will delete the old '
-            'profile or organization fields from your account (this is reversible only by admin). '
+            'profile or organization fields from your account (this is irreversible by you). '
             'Are you sure you want to continue?',
           ),
           actions: [
@@ -168,10 +162,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     return r == true;
   }
 
+  /// Simplified _save(): update user doc and optionally delete top-level fields.
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // If remove old data selected, ask for confirmation
     if (_fromSwitch && _removeOldData) {
       final ok = await _confirmRemoveOldData();
       if (!ok) return;
@@ -184,11 +178,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      final users = FirebaseFirestore.instance.collection('users');
+      final usersRef = FirebaseFirestore.instance.collection('users').doc(uid);
       final now = FieldValue.serverTimestamp();
       final role = (_role ?? 'Beneficiary').trim();
 
-      // Build payload using merge-safe approach
+      // payload to write (merge)
       final Map<String, dynamic> payload = {
         'role': role,
         'isOrganization': _isOrg,
@@ -211,10 +205,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         };
       }
 
-      // If user chose to remove old role data, prepare deletes:
+      // prepare deletes (if user chose to remove old top-level role fields)
       final Map<String, dynamic> deletePayload = {};
       if (_fromSwitch && _removeOldData) {
-        // If switching to organization role, remove 'profile'; otherwise remove 'organization'
+        // if switching to org, delete 'profile'; otherwise delete 'organization'
         if (_isOrg) {
           deletePayload['profile'] = FieldValue.delete();
         } else {
@@ -222,17 +216,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         }
       }
 
-      // 1) Write merged fields
-      await users.doc(uid).set(payload, SetOptions(merge: true));
+      // 1) Write merged payload
+      await usersRef.set(payload, SetOptions(merge: true));
 
-      // 2) Apply deletes if requested (single merge call that includes deletes)
+      // 2) Apply deletes if requested
       if (deletePayload.isNotEmpty) {
-        await users.doc(uid).set(deletePayload, SetOptions(merge: true));
+        await usersRef.set(deletePayload, SetOptions(merge: true));
       }
 
-      // 3) Audit entry when switching
+      // 3) Add audit entry if switching role
       if (_fromSwitch) {
-        await users.doc(uid).collection('roleChangeHistory').add({
+        await usersRef.collection('roleChangeHistory').add({
           'newRole': role,
           'timestamp': now,
           'triggeredBy': uid,
@@ -240,18 +234,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         });
       }
 
-      // Redirect: choose dashboard route based on the role
-      String dest = '/dashboard'; // fallback
-      if (role == 'Donor') {
+      // 4) Navigate to appropriate dashboard
+      String dest = '/dashboard';
+      if (role == 'Donor')
         dest = '/donor_dashboard';
-      } else if (role == 'Food Bank') {
+      else if (role == 'Food Bank')
         dest = '/foodbank_dashboard';
-      } else if (role == 'Beneficiary') {
+      else if (role == 'Beneficiary')
         dest = '/beneficiary_dashboard';
-      }
 
       if (!mounted) return;
-      // Clear stack and go to dashboard
       Navigator.pushNamedAndRemoveUntil(context, dest, (route) => false);
     } catch (e) {
       if (mounted) {
@@ -360,9 +352,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       onFieldSubmitted: (_) {
-        if (action == TextInputAction.done) {
-          FocusScope.of(context).unfocus();
-        }
+        if (action == TextInputAction.done) FocusScope.of(context).unfocus();
       },
     );
   }
@@ -409,12 +399,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           style: TextStyle(color: Colors.white70),
                         ),
                         const SizedBox(height: 16),
-
-                        // role toggle and fields
                         if (_role == null)
                           const SizedBox.shrink()
                         else ...[
-                          // Only show toggle for Donor/Beneficiary
                           if (_role == 'Donor' || _role == 'Beneficiary') ...[
                             Container(
                               decoration: BoxDecoration(
@@ -451,15 +438,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               ..._orgFields()
                             else
                               ..._individualFields(),
-                          ] else if (_role == 'Food Bank') ...[
-                            ..._orgFields(), // always org
-                          ],
+                          ] else if (_role == 'Food Bank')
+                            ..._orgFields(),
                         ],
-
                         const SizedBox(height: 12),
-
-                        // If switching role, show remove-old-data option
-                        if (_fromSwitch) ...[
+                        if (_fromSwitch)
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
@@ -479,26 +462,25 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                       ),
                                 ),
                                 const SizedBox(width: 8),
-                                Expanded(
+                                const Expanded(
                                   child: Text(
                                     'Remove previous role data (delete old profile/organization fields).',
-                                    style: const TextStyle(
-                                      color: Colors.black87,
-                                    ),
+                                    style: TextStyle(color: Colors.black87),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 12),
-                        ],
-
                         if (_error != null)
-                          Text(
-                            _error!,
-                            style: const TextStyle(color: Colors.yellowAccent),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Colors.yellowAccent,
+                              ),
+                            ),
                           ),
-
                         const SizedBox(height: 10),
                         SizedBox(
                           width: double.infinity,
@@ -524,7 +506,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                     : const Text('Save & Continue'),
                           ),
                         ),
-                        const SizedBox(height: 12),
                       ],
                     ),
                   ),

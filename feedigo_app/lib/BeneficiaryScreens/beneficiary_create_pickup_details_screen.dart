@@ -96,13 +96,21 @@ class _BeneficiaryCreatePickupDetailsScreenState
 
           // Donor contact stream (to render read-only)
           final donorStream =
-              donorId.isEmpty ? null : FirebaseFirestore.instance.collection('users').doc(donorId).snapshots();
+              donorId.isEmpty
+                  ? null
+                  : FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(donorId)
+                      .snapshots();
 
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: myReqQuery.snapshots(),
             builder: (context, rSnap) {
               final personalStatus =
-                  (rSnap.data?.docs.isNotEmpty ?? false) ? (rSnap.data!.docs.first.data()['status'] as String? ?? '') : null;
+                  (rSnap.data?.docs.isNotEmpty ?? false)
+                      ? (rSnap.data!.docs.first.data()['status'] as String? ??
+                          '')
+                      : null;
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -140,7 +148,8 @@ class _BeneficiaryCreatePickupDetailsScreenState
                             personName: null,
                             phone: null,
                             loading: false,
-                            error: 'Unable to load donor contact. You can still schedule.',
+                            error:
+                                'Unable to load donor contact. You can still schedule.',
                           );
                         }
                         if (!uSnap.hasData || !uSnap.data!.exists) {
@@ -154,19 +163,25 @@ class _BeneficiaryCreatePickupDetailsScreenState
                         final u = uSnap.data!.data()!;
                         final isOrg = u['isOrganization'] == true;
 
-                        final orgName = isOrg
-                            ? (u['organization']?['organization_name'] as String?) ??
-                                (u['organization']?['name'] as String?) ??
-                                ''
-                            : null;
-                        final personName = isOrg
-                            ? (u['organization']?['contactPerson'] as String?) ?? ''
-                            : (u['profile']?['name'] as String?) ??
-                                (u['profile']?['displayName'] as String?) ??
-                                '';
-                        final phone = isOrg
-                            ? (u['organization']?['phone'] as String?) ?? ''
-                            : (u['profile']?['phone'] as String?) ?? '';
+                        final orgName =
+                            isOrg
+                                ? (u['organization']?['organization_name']
+                                        as String?) ??
+                                    (u['organization']?['name'] as String?) ??
+                                    ''
+                                : null;
+                        final personName =
+                            isOrg
+                                ? (u['organization']?['contactPerson']
+                                        as String?) ??
+                                    ''
+                                : (u['profile']?['name'] as String?) ??
+                                    (u['profile']?['displayName'] as String?) ??
+                                    '';
+                        final phone =
+                            isOrg
+                                ? (u['organization']?['phone'] as String?) ?? ''
+                                : (u['profile']?['phone'] as String?) ?? '';
 
                         return _contactCard(
                           orgName: orgName,
@@ -192,7 +207,10 @@ class _BeneficiaryCreatePickupDetailsScreenState
                       _PickerField(
                         hint: 'Select pickup date',
                         icon: Icons.event,
-                        valueText: _pickedDate == null ? null : _formatDate(_pickedDate!),
+                        valueText:
+                            _pickedDate == null
+                                ? null
+                                : _formatDate(_pickedDate!),
                         onTap: () => _pickDate(context, expiry),
                       ),
                       const SizedBox(height: 14),
@@ -201,7 +219,10 @@ class _BeneficiaryCreatePickupDetailsScreenState
                       _PickerField(
                         hint: 'Select time',
                         icon: Icons.schedule,
-                        valueText: _pickedStart == null ? null : _formatTime(_pickedStart!),
+                        valueText:
+                            _pickedStart == null
+                                ? null
+                                : _formatTime(_pickedStart!),
                         onTap: () => _pickStartTime(context),
                       ),
 
@@ -221,9 +242,10 @@ class _BeneficiaryCreatePickupDetailsScreenState
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.event_available),
                       label: const Text('Schedule Pickup'),
-                      onPressed: _saving
-                          ? null
-                          : () => _save(
+                      onPressed:
+                          _saving
+                              ? null
+                              : () => _save(
                                 donationRef: donationRef,
                                 expiry: expiry,
                                 isRecipient: isRecipient,
@@ -316,19 +338,21 @@ class _BeneficiaryCreatePickupDetailsScreenState
       batch.update(donationRef, {
         'status': 'scheduled',
         'pickupInfo.time': Timestamp.fromDate(start),
-        if (_notesCtrl.text.trim().isNotEmpty) 'pickupInfo.notes': _notesCtrl.text.trim(),
+        if (_notesCtrl.text.trim().isNotEmpty)
+          'pickupInfo.notes': _notesCtrl.text.trim(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
       // 2) Update the current user's donation_request for this donation
       final myUid = FirebaseAuth.instance.currentUser?.uid;
       if (myUid != null) {
-        final reqSnap = await db
-            .collection('donation_requests')
-            .where('donationId', isEqualTo: donationId)
-            .where('recipientId', isEqualTo: myUid)
-            .limit(1)
-            .get();
+        final reqSnap =
+            await db
+                .collection('donation_requests')
+                .where('donationId', isEqualTo: donationId)
+                .where('recipientId', isEqualTo: myUid)
+                .limit(1)
+                .get();
 
         if (reqSnap.docs.isNotEmpty) {
           batch.update(reqSnap.docs.first.reference, {
@@ -358,21 +382,21 @@ class _BeneficiaryCreatePickupDetailsScreenState
   // ---------- small ui helpers ----------
 
   InputDecoration _inputDeco(String hint) => const InputDecoration(
-        border: OutlineInputBorder(),
-        isDense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      ).copyWith(hintText: hint);
+    border: OutlineInputBorder(),
+    isDense: true,
+    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  ).copyWith(hintText: hint);
 
   Widget _fieldLabel(String t) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          t,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      t,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        color: Colors.black87,
+      ),
+    ),
+  );
 
   Widget _PickerField({
     required String hint,
@@ -486,9 +510,12 @@ class _BeneficiaryCreatePickupDetailsScreenState
             Text(error, style: const TextStyle(color: Colors.black54)),
           ] else if (!loading) ...[
             if ((orgName ?? '').isNotEmpty) _kv('Organization Name:', orgName!),
-            if ((personName ?? '').isNotEmpty) _kv('Conatct Name:', personName!),
+            if ((personName ?? '').isNotEmpty)
+              _kv('Conatct Name:', personName!),
             if ((phone ?? '').isNotEmpty) _kv('Phone Number:', phone!),
-            if ((orgName ?? '').isEmpty && (personName ?? '').isEmpty && (phone ?? '').isEmpty)
+            if ((orgName ?? '').isEmpty &&
+                (personName ?? '').isEmpty &&
+                (phone ?? '').isEmpty)
               const Text('—', style: TextStyle(color: Colors.black54)),
           ],
         ],
@@ -514,23 +541,23 @@ class _BeneficiaryCreatePickupDetailsScreenState
   }
 
   Widget _kv(String k, String v) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 140,
-              child: Text(
-                k,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 140,
+          child: Text(
+            k,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
             ),
-            Expanded(child: Text(v)),
-          ],
+          ),
         ),
-      );
+        Expanded(child: Text(v)),
+      ],
+    ),
+  );
 
   String _formatDate(DateTime d) {
     const m = [
@@ -557,26 +584,28 @@ class _BeneficiaryCreatePickupDetailsScreenState
     return '$hh:$mm $ap';
   }
 
-  void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  void _snack(String m) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   Widget _warn(String t) => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF4E5),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.info_outline, color: Color(0xFFEF6C00)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(t, style: const TextStyle(color: Colors.black87))),
-          ],
-        ),
-      );
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF4E5),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.info_outline, color: Color(0xFFEF6C00)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(t, style: const TextStyle(color: Colors.black87))),
+      ],
+    ),
+  );
 
-  Widget _center(String t) => Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
+  Widget _center(String t) =>
+      Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
 }
 
 /// Status chip (supports global and "Your:" labels)
@@ -591,7 +620,7 @@ class _StatusChip extends StatelessWidget {
     Color bg, fg;
     String label;
 
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = personal ? 'Your: Accepted' : 'Approved';
@@ -599,7 +628,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'rejected' || s == 'cancelled') {
+    } else if (s == 'declined') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

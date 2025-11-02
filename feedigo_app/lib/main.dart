@@ -60,7 +60,7 @@ class FeediGoApp extends StatelessWidget {
         '/role_selection': (_) => const RoleSelectionScreen(),
         //profile setup
         '/profile_setup': (_) => const ProfileSetupScreen(),
-        '/profile_success': (_) => const ProfileSuccessScreen(),
+        //'/profile_success': (_) => const ProfileSuccessScreen(),
         //donor screens
         '/donor_dashboard': (_) => const DonorDashboardScreen(),
         '/post_donation': (_) => const PostDonationScreen(),

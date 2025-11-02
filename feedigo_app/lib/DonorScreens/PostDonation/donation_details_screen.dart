@@ -135,24 +135,27 @@ class DonationDetailsScreen extends StatelessWidget {
                   _sectionCard('Description', data['description'] as String),
 
                 const SizedBox(height: 20),
-                Center(
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(
-                        context,
-                        '/edit_donation',
-                        arguments: donationId,
-                      );
-                    },
-                    child: const Text(
-                      'Edit',
-                      style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.w600,
+                // show Edit only when status == 'pending' (case-insensitive)
+                if (status.toLowerCase() == 'pending') ...[
+                  Center(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/edit_donation',
+                          arguments: donationId,
+                        );
+                      },
+                      child: const Text(
+                        'Edit',
+                        style: TextStyle(
+                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
             );
           },
@@ -275,7 +278,7 @@ class _StatusChip extends StatelessWidget {
     final s = status.toLowerCase();
     Color bg, fg;
     String label;
-    if (s == 'approved' || s == 'accepted') {
+    if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
       label = 'Approved';
@@ -283,7 +286,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = 'Completed';
-    } else if (s == 'rejected' || s == 'cancelled') {
+    } else if (s == 'declined') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = 'Rejected';

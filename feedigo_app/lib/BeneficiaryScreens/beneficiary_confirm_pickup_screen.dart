@@ -65,13 +65,21 @@ class _BeneficiaryConfirmPickupScreenState
       return const Scaffold(body: Center(child: Text('Invalid donation id')));
     }
 
-    final donationRef =
-        FirebaseFirestore.instance.collection('donations').doc(donationId);
+    final donationRef = FirebaseFirestore.instance
+        .collection('donations')
+        .doc(donationId);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
       appBar: AppBar(
-        title: Text(_readOnly ? 'Pickup Proof' : 'Confirm Pickup'),
+        title: Text(
+          _readOnly ? 'Pickup Proof' : 'Confirm Pickup',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: orange,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -92,7 +100,7 @@ class _BeneficiaryConfirmPickupScreenState
           final savedNote = (proof?['note'] as String?) ?? '';
           final savedUrls =
               (proof?['photos'] as List?)?.map((e) => e.toString()).toList() ??
-                  const <String>[];
+              const <String>[];
 
           // In read-only mode, seed UI once with saved data
           if (_readOnly && !_seededFromProof) {
@@ -124,8 +132,7 @@ class _BeneficiaryConfirmPickupScreenState
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   isDense: true,
-                  hintText:
-                      'Optional note (e.g., who received it, condition)…',
+                  hintText: 'Optional note (e.g., who received it, condition)…',
                 ),
               ),
               const SizedBox(height: 12),
@@ -155,50 +162,52 @@ class _BeneficiaryConfirmPickupScreenState
               else
                 (_photos.isEmpty)
                     ? const Text(
-                        'No photos selected. You can still complete without photos.',
-                        style: TextStyle(color: Colors.black54),
-                      )
+                      'No photos selected. You can still complete without photos.',
+                      style: TextStyle(color: Colors.black54),
+                    )
                     : Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _photos
-                            .map(
-                              (x) => Stack(
-                                alignment: Alignment.topRight,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(
-                                      File(x.path),
-                                      width: 100,
-                                      height: 100,
-                                      fit: BoxFit.cover,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children:
+                          _photos
+                              .map(
+                                (x) => Stack(
+                                  alignment: Alignment.topRight,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        File(x.path),
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                      ),
                                     ),
-                                  ),
-                                  Material(
-                                    color: Colors.black45,
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: InkWell(
-                                      onTap: _busy
-                                          ? null
-                                          : () => setState(() {
-                                                _photos.remove(x);
-                                              }),
-                                      child: const Padding(
-                                        padding: EdgeInsets.all(2),
-                                        child: Icon(
-                                          Icons.close,
-                                          color: Colors.white,
-                                          size: 16,
+                                    Material(
+                                      color: Colors.black45,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: InkWell(
+                                        onTap:
+                                            _busy
+                                                ? null
+                                                : () => setState(() {
+                                                  _photos.remove(x);
+                                                }),
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(2),
+                                          child: Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            )
-                            .toList(),
-                      ),
+                                  ],
+                                ),
+                              )
+                              .toList(),
+                    ),
 
               const SizedBox(height: 24),
 
@@ -281,12 +290,13 @@ class _BeneficiaryConfirmPickupScreenState
       // Update my request status to completed (if present)
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
-        final reqSnap = await db
-            .collection('donation_requests')
-            .where('donationId', isEqualTo: donationId)
-            .where('recipientId', isEqualTo: uid)
-            .limit(1)
-            .get();
+        final reqSnap =
+            await db
+                .collection('donation_requests')
+                .where('donationId', isEqualTo: donationId)
+                .where('recipientId', isEqualTo: uid)
+                .limit(1)
+                .get();
         if (reqSnap.docs.isNotEmpty) {
           batch.update(reqSnap.docs.first.reference, {
             'status': 'completed',
@@ -339,10 +349,11 @@ class _SavedProofGrid extends StatelessWidget {
         mainAxisSpacing: 6,
         crossAxisSpacing: 6,
       ),
-      itemBuilder: (_, i) => ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(urls[i], fit: BoxFit.cover),
-      ),
+      itemBuilder:
+          (_, i) => ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(urls[i], fit: BoxFit.cover),
+          ),
     );
   }
 }
