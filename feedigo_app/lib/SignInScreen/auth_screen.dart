@@ -148,6 +148,196 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  // --------------------------
+  // Forgot password flow
+  // --------------------------
+  void _showForgotPasswordDialog() {
+    final ctrl = TextEditingController(text: _emailController.text.trim());
+    showDialog<void>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Reset password'),
+            content: TextField(
+              controller: ctrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(hintText: 'Enter your email'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE26A2C),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _sendPasswordReset(ctrl.text.trim());
+                },
+                child: const Text('Send reset link'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _sendPasswordReset(String email) async {
+    if (email.isEmpty) {
+      _showSnack('Please enter an email address.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
+      // Neutral message to avoid account enumeration
+      _showSnack(
+        'If an account exists for that email, a reset link has been sent.',
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        switch (e.code) {
+          case 'invalid-email':
+            _errorMessage = 'Please enter a valid email.';
+            break;
+          case 'user-not-found':
+            // Keep neutral UX but optionally show a hint
+            _errorMessage =
+                'If an account exists for that email, a reset link has been sent.';
+            break;
+          case 'too-many-requests':
+            _errorMessage = 'Too many attempts. Try again later.';
+            break;
+          default:
+            _errorMessage = 'Could not send reset email: ${e.message}';
+        }
+      });
+    } catch (_) {
+      setState(() => _errorMessage = 'Something went wrong. Try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --------------------------
+  // Find account (by phone) flow
+  // --------------------------
+  void _showFindAccountDialog() {
+    final ctrl = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Find account'),
+            content: TextField(
+              controller: ctrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                hintText: 'Enter phone number (with country code)',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE26A2C),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _lookupEmailByPhone(ctrl.text.trim());
+                },
+                child: const Text('Find'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _lookupEmailByPhone(String phone) async {
+    if (phone.isEmpty) {
+      _showSnack('Please enter a phone number.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      // Try profile.phone
+      final q1 =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .where('profile.phone', isEqualTo: phone)
+              .limit(1)
+              .get();
+
+      String? email;
+      if (q1.docs.isNotEmpty) {
+        email = q1.docs.first.data()['email'] as String?;
+      } else {
+        // Try organization.phone
+        final q2 =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .where('organization.phone', isEqualTo: phone)
+                .limit(1)
+                .get();
+        if (q2.docs.isNotEmpty) {
+          email = q2.docs.first.data()['email'] as String?;
+        }
+      }
+
+      if (email == null || email.isEmpty) {
+        // Neutral response to avoid leaking info
+        _showSnack(
+          'If an account is linked to that phone number, we found nothing public.',
+        );
+      } else {
+        final masked = _maskEmail(email);
+        _showSnack('Found account: $masked');
+      }
+    } catch (e) {
+      _showSnack('Lookup failed. Try again later.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _maskEmail(String? email) {
+    if (email == null || !email.contains('@')) return '—';
+    final parts = email.split('@');
+    final local = parts[0];
+    final domain = parts[1];
+    final maskedLocal =
+        local.length <= 2
+            ? '*' * local.length
+            : '${local[0]}${'*' * (local.length - 2)}${local[local.length - 1]}';
+    final domainParts = domain.split('.');
+    final domainName = domainParts[0];
+    final tld = domainParts.skip(1).join('.');
+    final maskedDomain =
+        domainName.length <= 2
+            ? '*' * domainName.length
+            : '${domainName[0]}${'*' * (domainName.length - 2)}${domainName[domainName.length - 1]}';
+    return '$maskedLocal@$maskedDomain${tld.isNotEmpty ? '.$tld' : ''}';
+  }
+
+  void _showSnack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  // --------------------------
+  // Build UI
+  // --------------------------
   @override
   Widget build(BuildContext context) {
     const orange = Color(0xFFE26A2C);
@@ -194,7 +384,11 @@ class _AuthScreenState extends State<AuthScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   GestureDetector(
-                    onTap: () => setState(() => isSignIn = true),
+                    onTap:
+                        () => setState(() {
+                          isSignIn = true;
+                          _errorMessage = '';
+                        }),
                     child: Column(
                       children: [
                         Text(
@@ -217,7 +411,11 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   const SizedBox(width: 24),
                   GestureDetector(
-                    onTap: () => setState(() => isSignIn = false),
+                    onTap:
+                        () => setState(() {
+                          isSignIn = false;
+                          _errorMessage = '';
+                        }),
                     child: Column(
                       children: [
                         Text(
@@ -282,6 +480,30 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
 
+              // Forgot password & find account (visible in Sign In)
+              if (isSignIn) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                      child: const Text(
+                        'Forgot password?',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _isLoading ? null : _showFindAccountDialog,
+                      child: const Text(
+                        'Find account',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
               // Confirm Password (Sign Up only)
               if (!isSignIn) ...[
                 const SizedBox(height: 16),
@@ -340,8 +562,13 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 child:
                     _isLoading
-                        ? const CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(orange),
+                        ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(orange),
+                            strokeWidth: 2,
+                          ),
                         )
                         : Text(isSignIn ? "Sign In" : "Create Account"),
               ),
