@@ -235,13 +235,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       }
 
       // 4) Navigate to appropriate dashboard
-      String dest = '/dashboard';
-      if (role == 'Donor')
-        dest = '/donor_dashboard';
-      else if (role == 'Food Bank')
-        dest = '/foodbank_dashboard';
-      else if (role == 'Beneficiary')
-        dest = '/beneficiary_dashboard';
+      String dest = '/profile_success';
 
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, dest, (route) => false);
