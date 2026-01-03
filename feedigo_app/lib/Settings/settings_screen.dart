@@ -7,7 +7,7 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (currentUser == null) {

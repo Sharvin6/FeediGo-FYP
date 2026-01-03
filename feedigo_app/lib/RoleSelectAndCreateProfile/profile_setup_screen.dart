@@ -353,7 +353,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
     final titleStyle = Theme.of(context).textTheme.headlineSmall?.copyWith(
       color: Colors.white,
       fontWeight: FontWeight.bold,

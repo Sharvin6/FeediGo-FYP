@@ -170,7 +170,12 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE26A2C),
+                  backgroundColor: const Color.fromARGB(
+                    255,
+                    255,
+                    109,
+                    36,
+                  ), // FeediGo orange
                 ),
                 onPressed: () {
                   Navigator.of(ctx).pop();
@@ -246,7 +251,12 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE26A2C),
+                  backgroundColor: const Color.fromARGB(
+                    255,
+                    255,
+                    109,
+                    36,
+                  ), // FeediGo orange
                 ),
                 onPressed: () {
                   Navigator.of(ctx).pop();
@@ -340,8 +350,7 @@ class _AuthScreenState extends State<AuthScreen> {
   // --------------------------
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
-
+    const orange = Color.fromARGB(255, 255, 109, 36);
     return Scaffold(
       backgroundColor: orange,
       appBar: AppBar(

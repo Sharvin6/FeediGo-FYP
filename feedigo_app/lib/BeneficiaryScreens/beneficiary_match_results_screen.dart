@@ -11,7 +11,7 @@ class BeneficiaryMatchResultsScreen extends StatelessWidget {
     final query = (args['query'] as Map?) ?? {};
     final matches = ((args['matches'] as List?) ?? []).cast<Map>();
 
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
@@ -19,7 +19,11 @@ class BeneficiaryMatchResultsScreen extends StatelessWidget {
         backgroundColor: orange,
         title: const Text(
           'Match Results',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: Colors.white,
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
@@ -194,19 +198,21 @@ class BeneficiaryMatchResultsScreen extends StatelessWidget {
                 label: const Text('View Map'),
               ),
               OutlinedButton(
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  '/beneficiary_donation_details',
-                  arguments: donationId,
-                ),
+                onPressed:
+                    () => Navigator.pushNamed(
+                      context,
+                      '/beneficiary_donation_details',
+                      arguments: donationId,
+                    ),
                 child: const Text('View Details'),
               ),
               ElevatedButton(
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  '/beneficiary_donation_details',
-                  arguments: donationId,
-                ),
+                onPressed:
+                    () => Navigator.pushNamed(
+                      context,
+                      '/beneficiary_donation_details',
+                      arguments: donationId,
+                    ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFE26A2C),
                   foregroundColor: Colors.white,

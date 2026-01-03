@@ -10,7 +10,7 @@ class MatchResultsScreen extends StatelessWidget {
     final query = (args['query'] as Map?) ?? {};
     final matches = ((args['matches'] as List?) ?? []).cast<Map>();
 
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
@@ -18,7 +18,11 @@ class MatchResultsScreen extends StatelessWidget {
         backgroundColor: orange,
         title: const Text(
           'Match Results',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: Colors.white,
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,

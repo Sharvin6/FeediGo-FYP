@@ -10,7 +10,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (uid == null) {
@@ -359,7 +359,7 @@ class _OverviewCard extends StatelessWidget {
           _divider(),
           _stat('Approved Donations', approved),
           _divider(),
-          _stat('Total Meals Distributed', meals),
+          _stat('Complete Pickup', meals),
         ],
       ),
     );
@@ -603,7 +603,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFFFF4E5);
       fg = const Color(0xFFEF6C00);
       label = personal ? 'Your: Requested' : 'Requested';
-    } else if (s == 'declined') {
+    } else if (s == 'rejected') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

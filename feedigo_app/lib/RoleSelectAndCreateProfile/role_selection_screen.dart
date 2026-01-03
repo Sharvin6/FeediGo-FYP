@@ -80,7 +80,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             const Text(
               "Choose Your Role",
               style: TextStyle(
-                fontSize: 50,
+                fontSize: 30,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
@@ -89,7 +89,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             const SizedBox(height: 8),
             const Text(
               "Select how you want to participate in\nFeediGo",
-              style: TextStyle(fontSize: 15, color: Colors.white70),
+              style: TextStyle(fontSize: 13, color: Colors.white70),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 14),
@@ -185,7 +185,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               const SizedBox(height: 6),
               Text(
                 description,
-                style: const TextStyle(fontSize: 13, color: Colors.black54),
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 14),
@@ -207,11 +207,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                                     color: Color(0xFFE26A2C),
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 5),
                                 Expanded(
                                   child: Text(
                                     point,
-                                    style: const TextStyle(fontSize: 13),
+                                    style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                               ],

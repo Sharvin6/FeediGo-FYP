@@ -7,7 +7,7 @@ class DonationDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final donationId = ModalRoute.of(context)!.settings.arguments as String;
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
 
     final ref = FirebaseFirestore.instance
         .collection('donations')
@@ -286,7 +286,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = 'Completed';
-    } else if (s == 'declined') {
+    } else if (s == 'rejected') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = 'Rejected';

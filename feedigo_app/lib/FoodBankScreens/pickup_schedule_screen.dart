@@ -15,7 +15,7 @@ class _PickupScheduleScreenState extends State<PickupScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       return const Scaffold(body: Center(child: Text('Not signed in')));
@@ -315,18 +315,17 @@ class _PickupScheduleScreenState extends State<PickupScheduleScreen> {
                 label: 'View Map',
                 onTap: address.isEmpty ? null : () => _openMaps(address),
               ),
-              // Always: donor post details
+
               _SmallButton(
                 label: 'View Donation Post',
                 onTap:
                     () => Navigator.pushNamed(
                       context,
-                      '/fb_donation_details',
+                      '/beneficiary_donation_details',
                       arguments: d.id,
                     ),
               ),
 
-              // Only one of these shows at a time:
               if (canSchedule)
                 ElevatedButton.icon(
                   icon: const Icon(Icons.event_available),
@@ -342,13 +341,12 @@ class _PickupScheduleScreenState extends State<PickupScheduleScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.pushNamed(
-                      context,
-                      '/create_pickup_details',
-                      arguments: d.id,
-                    );
-                  },
+                  onPressed:
+                      () => Navigator.pushNamed(
+                        context,
+                        '/beneficiary_create_pickup_details',
+                        arguments: d.id,
+                      ),
                 ),
 
               if (canViewSchedule)
@@ -357,39 +355,35 @@ class _PickupScheduleScreenState extends State<PickupScheduleScreen> {
                   onTap:
                       () => Navigator.pushNamed(
                         context,
-                        '/pickup_schedule_details',
+                        '/beneficiary_pickup_schedule_details',
+                        arguments: d.id,
+                      ),
+                ),
+
+              if (d.status == 'scheduled')
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Confirm Pickup'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed:
+                      () => Navigator.pushNamed(
+                        context,
+                        '/beneficiary_confirm_pickup',
                         arguments: d.id,
                       ),
                 ),
             ],
           ),
-
-          if (canSchedule) ...[
-            const SizedBox(height: 6),
-            const Text(
-              'Approved – waiting to be scheduled',
-              style: TextStyle(color: Colors.black54, fontSize: 12),
-            ),
-          ],
-
-          if (canMarkComplete) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: 150,
-              child: ElevatedButton(
-                onPressed: () => _markComplete(d),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE26A2C),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Mark Complete'),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -554,7 +548,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'declined') {
+    } else if (s == 'rejected') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

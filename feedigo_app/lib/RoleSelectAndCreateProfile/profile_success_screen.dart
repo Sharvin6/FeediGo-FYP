@@ -48,7 +48,7 @@ class _ProfileSuccessScreenState extends State<ProfileSuccessScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
     final args = ModalRoute.of(context)?.settings.arguments as String?;
 
     return Scaffold(

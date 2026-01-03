@@ -59,7 +59,7 @@ class _BeneficiaryConfirmPickupScreenState
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
 
     if (donationId.isEmpty) {
       return const Scaffold(body: Center(child: Text('Invalid donation id')));

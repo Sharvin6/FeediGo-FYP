@@ -18,7 +18,7 @@ class _BeneficiaryPickupScheduleScreenState
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       return const Scaffold(body: Center(child: Text('Not signed in')));
@@ -315,7 +315,7 @@ class _BeneficiaryPickupScheduleScreenState
                 label: 'View Map',
                 onTap: address.isEmpty ? null : () => _openMaps(address),
               ),
-              // Always: donation post details
+
               _SmallButton(
                 label: 'View Donation Post',
                 onTap:
@@ -326,7 +326,6 @@ class _BeneficiaryPickupScheduleScreenState
                     ),
               ),
 
-              // Only one of these shows at a time:
               if (canSchedule)
                 ElevatedButton.icon(
                   icon: const Icon(Icons.event_available),
@@ -342,13 +341,12 @@ class _BeneficiaryPickupScheduleScreenState
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.pushNamed(
-                      context,
-                      '/beneficiary_create_pickup_details',
-                      arguments: d.id,
-                    );
-                  },
+                  onPressed:
+                      () => Navigator.pushNamed(
+                        context,
+                        '/beneficiary_create_pickup_details',
+                        arguments: d.id,
+                      ),
                 ),
 
               if (canViewSchedule)
@@ -361,35 +359,31 @@ class _BeneficiaryPickupScheduleScreenState
                         arguments: d.id,
                       ),
                 ),
+
+              if (d.status == 'scheduled')
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Confirm Pickup'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed:
+                      () => Navigator.pushNamed(
+                        context,
+                        '/beneficiary_confirm_pickup',
+                        arguments: d.id,
+                      ),
+                ),
             ],
           ),
-
-          if (canSchedule) ...[
-            const SizedBox(height: 6),
-            const Text(
-              'Approved – waiting to be scheduled',
-              style: TextStyle(color: Colors.black54, fontSize: 12),
-            ),
-          ],
-
-          if (canMarkComplete) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: 150,
-              child: ElevatedButton(
-                onPressed: () => _markComplete(d),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE26A2C),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Mark Complete'),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -397,45 +391,6 @@ class _BeneficiaryPickupScheduleScreenState
 
   Widget _center(String t) =>
       Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
-
-  // ---------- actions ----------
-
-  Future<void> _markComplete(_Donation d) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      final db = FirebaseFirestore.instance;
-      final donationRef = db.collection('donations').doc(d.id);
-
-      final batch = db.batch();
-      batch.update(donationRef, {
-        'status': 'completed',
-        'completedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      final acceptedReqId = d.acceptedRequestId;
-      if (acceptedReqId != null && acceptedReqId.isNotEmpty) {
-        final reqRef = db.collection('donation_requests').doc(acceptedReqId);
-        batch.update(reqRef, {
-          'status': 'completed',
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      await batch.commit();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Marked as completed.')));
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to complete: $e')));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
 
   // ---------- utils ----------
 
@@ -554,7 +509,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'declined') {
+    } else if (s == 'rejected') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

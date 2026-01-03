@@ -49,6 +49,7 @@ class FeediGoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'FeediGo',
       theme: ThemeData(primarySwatch: Colors.deepOrange),
       initialRoute: '/',
@@ -101,7 +102,7 @@ class FeediGoApp extends StatelessWidget {
             (_) => const BeneficiaryDonationDetailsScreen(),
         '/beneficiary_pickup_schedule':
             (_) => const BeneficiaryPickupScheduleScreen(),
-        '/beneficiary_create_pickup':
+        '/beneficiary_create_pickup_details':
             (_) => const BeneficiaryCreatePickupDetailsScreen(),
         '/beneficiary_pickup_schedule_details':
             (_) => const BeneficiaryPickupScheduleDetailsScreen(),

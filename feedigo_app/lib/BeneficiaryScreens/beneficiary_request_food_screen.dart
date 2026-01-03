@@ -117,7 +117,7 @@ class _BeneficiaryRequestFoodScreenState
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
@@ -125,7 +125,11 @@ class _BeneficiaryRequestFoodScreenState
         backgroundColor: orange,
         title: const Text(
           'Request Food',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: Colors.white,
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,

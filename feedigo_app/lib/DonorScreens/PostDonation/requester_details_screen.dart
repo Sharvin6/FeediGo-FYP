@@ -21,7 +21,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
     if (donationId.isEmpty) {
       return const Scaffold(body: Center(child: Text('Invalid donation')));
     }
@@ -35,7 +35,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
         FirebaseFirestore.instance
             .collection('donation_requests')
             .where('donationId', isEqualTo: donationId)
-            .where('status', whereIn: ['pending', 'accepted'])
+            .where('status', whereIn: ['pending', 'accepted', 'rejected'])
             .orderBy('createdAt', descending: true)
             .snapshots();
 
@@ -194,8 +194,11 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                               child: ElevatedButton.icon(
                                 icon: const Icon(Icons.check),
                                 label: const Text('Accept'),
+
                                 onPressed:
-                                    _busy
+                                    (_busy ||
+                                            _selectedAction == 'accept' ||
+                                            req['status'] == 'accepted')
                                         ? null
                                         : () {
                                           setState(() {
@@ -204,11 +207,9 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                                           _accept(reqId, requesterId);
                                         },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      _selectedAction == 'accept'
-                                          ? Colors.green
-                                          : Colors.grey[400],
+                                  backgroundColor: Colors.green,
                                   foregroundColor: Colors.white,
+                                  disabledBackgroundColor: Colors.grey[400],
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
                                   ),
@@ -224,7 +225,9 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                                 icon: const Icon(Icons.close),
                                 label: const Text('Decline'),
                                 onPressed:
-                                    _busy
+                                    (_busy ||
+                                            _selectedAction == 'decline' ||
+                                            req['status'] == 'rejected')
                                         ? null
                                         : () {
                                           setState(() {
@@ -233,11 +236,9 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                                           _decline(reqId);
                                         },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      _selectedAction == 'decline'
-                                          ? Colors.red
-                                          : Colors.grey[400],
+                                  backgroundColor: Colors.red,
                                   foregroundColor: Colors.white,
+                                  disabledBackgroundColor: Colors.grey[400],
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
                                   ),
@@ -249,6 +250,23 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                             ),
                           ],
                         ),
+                        if (req['status'] != 'pending') ...[
+                          const SizedBox(
+                            height: 12,
+                          ), // Space between buttons and text
+                          Center(
+                            child: Text(
+                              req['status'] == 'accepted'
+                                  ? 'You accepted this request'
+                                  : 'You rejected this request',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     );
                   },
@@ -295,7 +313,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
       for (final doc in others.docs) {
         if (doc.id == reqId) continue;
         batch.update(doc.reference, {
-          'status': 'declined',
+          'status': 'rejected',
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
@@ -303,7 +321,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
       await batch.commit();
       if (!mounted) return;
       _snack('Request accepted.');
-      Navigator.pop(context);
+      //Navigator.pop(context);
     } catch (_) {
       _snack('Failed to accept. Try again.');
     } finally {
@@ -320,9 +338,9 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
     final reqRef = db.collection('donation_requests').doc(reqId);
 
     try {
-      // 1) Mark the request as declined
+      // 1) Mark the request as rejected
       await reqRef.update({
-        'status': 'declined',
+        'status': 'rejected',
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -347,7 +365,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
 
       if (!mounted) return;
       _snack('Request rejected.');
-      Navigator.pop(context);
+      //Navigator.pop(context);
     } catch (e, st) {
       debugPrint('Decline failed: $e\n$st');
       _snack('Failed to decline. Try again.');

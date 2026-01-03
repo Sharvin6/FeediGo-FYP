@@ -15,7 +15,7 @@ class _AvailableDonationsScreenState extends State<AvailableDonationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       return const Scaffold(body: Center(child: Text('Not signed in')));
@@ -408,7 +408,7 @@ class _StatusChip extends StatelessWidget {
       bg = const Color(0xFFE8EAF6);
       fg = const Color(0xFF3F51B5);
       label = personal ? 'Your: Completed' : 'Completed';
-    } else if (s == 'declined') {
+    } else if (s == 'rejected') {
       bg = const Color(0xFFFFEBEE);
       fg = const Color(0xFFC62828);
       label = personal ? 'Your: Rejected' : 'Rejected';

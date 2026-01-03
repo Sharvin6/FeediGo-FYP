@@ -4,7 +4,12 @@ class OnboardingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE26A2C), // FeediGo orange
+      backgroundColor: const Color.fromARGB(
+        255,
+        255,
+        109,
+        36,
+      ), // FeediGo orange
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40),
@@ -12,6 +17,18 @@ class OnboardingScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
+              // App Logo
+              Center(
+                // Center the logo horizontally
+                child: SizedBox(
+                  height: 240, // Define the height of the logo
+                  width: 280, // Define the width of the logo
+                  child: Image.asset(
+                    'assets/images/page2.png', // <-- Use the correct widget and path format
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
 
               // Title
               const Text(
@@ -22,7 +39,7 @@ class OnboardingScreen extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
               // Description
               const Text(

@@ -1,4 +1,3 @@
-// lib/screens/request_food_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,11 +14,9 @@ class RequestFoodScreen extends StatefulWidget {
 class _RequestFoodScreenState extends State<RequestFoodScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // controllers
   final _qtyValueCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
 
-  // Food type options — EXACTLY the same labels used when donors post
   static const List<String> _foodTypeOptions = [
     'Cooked Meals',
     'Fresh Produce',
@@ -31,7 +28,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
   ];
   String? _foodType;
 
-  // quantity
   String _qtyUnit = 'kg';
   final List<String> _qtyUnits = const [
     'kg',
@@ -41,14 +37,20 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
     'boxes',
   ];
 
-  // saved address toggle
+  final Map<String, double> _minBulkByUnit = const {
+    'kg': 5,
+    'grams': 500,
+    'plates': 10,
+    'bottles': 10,
+    'boxes': 2,
+  };
+
   bool _useSavedAddress = true;
   String? _savedAddress;
   double? _savedLat;
   double? _savedLng;
   bool _loadingSaved = true;
 
-  // coords to send with the request (resolved from saved or typed address)
   double? _lat;
   double? _lng;
 
@@ -76,7 +78,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
             await FirebaseFirestore.instance.collection('users').doc(uid).get();
         final u = snap.data() ?? {};
 
-        // Try common locations in your schema
         final org = (u['organization'] as Map?) ?? {};
         final prof = (u['profile'] as Map?) ?? {};
 
@@ -93,21 +94,12 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
         _savedLat = latNum?.toDouble();
         _savedLng = lngNum?.toDouble();
 
-        // if toggle ON and we have saved address, pre-fill & set coords
         if (_useSavedAddress && _savedAddress != null) {
           _addressCtrl.text = _savedAddress!;
           _lat = _savedLat;
           _lng = _savedLng;
         }
-      } else {
-        _savedAddress = null;
-        _savedLat = null;
-        _savedLng = null;
       }
-    } catch (_) {
-      _savedAddress = null;
-      _savedLat = null;
-      _savedLng = null;
     } finally {
       if (mounted) setState(() => _loadingSaved = false);
     }
@@ -115,7 +107,7 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFE26A2C);
+    const orange = Color.fromARGB(255, 255, 109, 36);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F5F7),
@@ -123,10 +115,13 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
         backgroundColor: orange,
         title: const Text(
           'Request Food',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: Colors.white,
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
       ),
       body: Form(
         key: _formKey,
@@ -134,12 +129,24 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
             const Text(
-              'Fill out the details below to get the best matches.',
+              'Food banks request food in bulk quantities.',
               style: TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 12),
 
-            // Food type — matches donor labels
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                '⚠ Minimum bulk quantities apply to ensure efficient food distribution.',
+                style: TextStyle(fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             _label('Food Type'),
             DropdownButtonFormField<String>(
               value: _foodType,
@@ -156,8 +163,7 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Quantity (number + unit)
-            _label('Quantity Needed'),
+            _label('Quantity Needed (Bulk)'),
             Row(
               children: [
                 Expanded(
@@ -168,15 +174,26 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
                       decimal: true,
                     ),
                     decoration: const InputDecoration(
-                      hintText: 'e.g., 2.5',
+                      hintText: 'e.g. 10',
                       border: OutlineInputBorder(),
                       isDense: true,
+                      // ADD THIS LINE BELOW
+                      errorMaxLines: 2,
+                      // This allows the error text to wrap to a second line instead of clipping
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty)
-                        return 'Enter a quantity';
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Enter quantity';
+                      }
                       final n = double.tryParse(v.trim());
-                      if (n == null || n <= 0) return 'Enter a valid number';
+                      if (n == null || n <= 0) {
+                        return 'Invalid number';
+                      }
+                      final min = _minBulkByUnit[_qtyUnit]!;
+                      if (n < min) {
+                        // Shortening the text slightly also helps prevent overflow
+                        return 'Min. $min $_qtyUnit required';
+                      }
                       return null;
                     },
                   ),
@@ -192,7 +209,7 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
                               (u) => DropdownMenuItem(value: u, child: Text(u)),
                             )
                             .toList(),
-                    onChanged: (v) => setState(() => _qtyUnit = v ?? _qtyUnit),
+                    onChanged: (v) => setState(() => _qtyUnit = v!),
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       isDense: true,
@@ -203,35 +220,18 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Location choice
             if (_loadingSaved)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: LinearProgressIndicator(minHeight: 2),
-              )
+              const LinearProgressIndicator(minHeight: 2)
             else
               SwitchListTile(
                 value: _useSavedAddress,
-                onChanged: (val) {
+                onChanged: (v) {
                   setState(() {
-                    _useSavedAddress = val;
-                    if (_useSavedAddress) {
-                      if (_savedAddress != null) {
-                        _addressCtrl.text = _savedAddress!;
-                        _lat = _savedLat;
-                        _lng = _savedLng;
-                      } else {
-                        _addressCtrl.clear();
-                        _lat = null;
-                        _lng = null;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'No saved address found. Please enter one.',
-                            ),
-                          ),
-                        );
-                      }
+                    _useSavedAddress = v;
+                    if (v && _savedAddress != null) {
+                      _addressCtrl.text = _savedAddress!;
+                      _lat = _savedLat;
+                      _lng = _savedLng;
                     } else {
                       _addressCtrl.clear();
                       _lat = null;
@@ -240,32 +240,25 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
                   });
                 },
                 title: const Text('Use my saved address'),
-                subtitle: Text(
-                  _savedAddress ?? 'No saved address',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                subtitle: Text(_savedAddress ?? 'No saved address'),
               ),
 
             _label('Pickup Location'),
             TextFormField(
               controller: _addressCtrl,
               readOnly: _useSavedAddress,
-              decoration: InputDecoration(
-                hintText:
-                    _useSavedAddress
-                        ? 'Using your saved address'
-                        : 'Enter pickup address (optional)',
-                border: const OutlineInputBorder(),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
                 isDense: true,
-                fillColor: _useSavedAddress ? const Color(0xFFEFF1F4) : null,
-                filled: _useSavedAddress,
               ),
             ),
+
+            // ✅ LAT / LNG DISPLAY (NEW)
             if (_lat != null && _lng != null) ...[
               const SizedBox(height: 6),
               Text(
-                'Resolved: ${_lat!.toStringAsFixed(6)}, ${_lng!.toStringAsFixed(6)}',
+                'Resolved: ${_lat!.toStringAsFixed(6)}, '
+                '${_lng!.toStringAsFixed(6)}',
                 style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ],
@@ -292,20 +285,16 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
     );
   }
 
-  // UI helpers
   Widget _label(String t) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700)),
   );
 
-  /// Try to geocode the given [address]. Returns (lat, lng) or null.
   Future<(double, double)?> _geocode(String address) async {
     try {
-      if (address.trim().isEmpty) return null;
       final list = await geocoding.locationFromAddress(address);
       if (list.isEmpty) return null;
-      final loc = list.first;
-      return (loc.latitude, loc.longitude);
+      return (list.first.latitude, list.first.longitude);
     } catch (_) {
       return null;
     }
@@ -314,77 +303,46 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_useSavedAddress && (_savedAddress == null || _savedAddress!.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No saved address found—please type an address.'),
-        ),
-      );
-      return;
-    }
-
     setState(() => _busy = true);
-    try {
-      // Ensure we have coordinates to send (better UX & reliable distance calc)
-      String address = _addressCtrl.text.trim();
-      double? lat = _lat;
-      double? lng = _lng;
 
-      if (_useSavedAddress) {
-        if ((lat == null || lng == null) &&
-            (_savedAddress?.isNotEmpty ?? false)) {
-          final p = await _geocode(_savedAddress!);
-          if (p != null) {
-            lat = p.$1;
-            lng = p.$2;
-            setState(() {
-              _lat = lat;
-              _lng = lng;
-            });
-          }
-        }
-      } else {
-        if ((lat == null || lng == null) && address.isNotEmpty) {
-          final p = await _geocode(address);
-          if (p != null) {
-            lat = p.$1;
-            lng = p.$2;
-            setState(() {
-              _lat = lat;
-              _lng = lng;
-            });
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Could not locate that address—continuing without distance.',
-                ),
-              ),
-            );
-          }
+    try {
+      final qtyValue = double.parse(_qtyValueCtrl.text.trim());
+      final address = _addressCtrl.text.trim();
+
+      // 🔹 FORCE geocoding BEFORE navigation
+      if ((_lat == null || _lng == null) && address.isNotEmpty) {
+        final p = await _geocode(address);
+        if (p != null) {
+          setState(() {
+            _lat = p.$1;
+            _lng = p.$2;
+          });
         }
       }
 
-      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
-      final callable = functions.httpsCallable('matchDonations');
+      final callable = FirebaseFunctions.instanceFor(
+        region: 'us-central1',
+      ).httpsCallable('matchDonations');
 
-      final qtyValue = double.parse(_qtyValueCtrl.text.trim());
-
-      final payload = {
-        'requestedFoodType': _foodType, // <-- exact label match with donations
+      final res = await callable.call({
+        'requestedFoodType': _foodType,
         'qtyValue': qtyValue,
         'qtyUnit': _qtyUnit,
         'qtyNeed': '${_qtyValueCtrl.text.trim()} $_qtyUnit',
-        'address': address, // server can geocode if needed
-        'lat': lat,
-        'lng': lng,
+        'address': address,
+        'lat': _lat,
+        'lng': _lng,
+        'isBulkRequest': true,
         'topK': 5,
-      };
+      });
 
-      final res = await callable.call(payload);
-      final matches = (res.data['matches'] as List).cast<Map>().toList();
+      final matches = (res.data['matches'] as List).cast<Map>();
 
       if (!mounted) return;
+
+      // 🔹 delay so lat/lng is visible
+      await Future.delayed(const Duration(milliseconds: 800));
+
       Navigator.pushNamed(
         context,
         '/match_results',
@@ -394,24 +352,14 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
             'qtyValue': qtyValue,
             'qtyUnit': _qtyUnit,
             'address': address,
-            'needByDate': payload['needByDate'],
           },
           'matches': matches,
         },
       );
-    } on FirebaseFunctionsException catch (e) {
-      final msg = 'Code: ${e.code}  Message: ${e.message ?? ''}';
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to match: $msg')));
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to match: $e')));
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
