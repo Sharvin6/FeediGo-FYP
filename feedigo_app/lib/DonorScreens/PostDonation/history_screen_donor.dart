@@ -1,7 +1,27 @@
+/*
+  Donor Donation History Screen
+  -This screen fetches donation records from Firebase Firestore for the currently
+  signed-in user (donor), allowing filtering by donation status and performing actions
+  such as viewing details, editing, deleting, or viewing the schedule/requester info.
+
+  Important Technical Terms / Concepts Used:
+    - StatefulWidget: Maintains state across UI rebuilds, here used to track the selected status filter.
+    - FirebaseAuth: Provides the current user's authentication details (UID used to fetch donations).
+    - FirebaseFirestore: NoSQL cloud database used to store and query donation data.
+    - Query & StreamBuilder: Firestore queries are used to filter data; StreamBuilder listens in real-time.
+    - ListView.builder: Efficiently renders a scrollable list of donation items.
+    - DropdownButtonFormField: Lets users select a donation status filter.
+    - Async/Await: Used for asynchronous operations such as deletion confirmation.
+    - Timestamp: Firestore timestamp converted to DateTime for display.
+    - UI Widgets (Container, Row, Column, ElevatedButton, OutlinedButton, IconButton, etc.): Build the interactive UI.
+    - Conditional rendering: Buttons like "Edit", "Delete", "View Schedule" are shown based on donation status.
+    - Custom Widgets: _DonationTile and _StatusChip encapsulate reusable UI elements for clarity and maintainability.
+*/
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+/// Main screen displaying donation history for the signed-in user
 class DonationHistoryScreen extends StatefulWidget {
   const DonationHistoryScreen({super.key});
 
@@ -10,11 +30,10 @@ class DonationHistoryScreen extends StatefulWidget {
 }
 
 class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
-  // "All" means no status filter applied
+  // Constant for "All" filter
   static const allKey = 'all';
 
-  // Status options: map display label -> stored value
-  // Adjust values if your Firestore stores different strings (e.g. "Completed" vs "completed")
+  // Status filter options (display label -> stored Firestore value)
   final Map<String, String> _statusOptions = {
     'All': allKey,
     'Pending': 'pending',
@@ -24,22 +43,26 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
     'Completed': 'completed',
   };
 
+  // Currently selected status filter
   String _selectedStatus = allKey;
 
   @override
   Widget build(BuildContext context) {
     const orange = Color.fromARGB(255, 255, 109, 36);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
 
+    // Get current user's UID
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
+      // User not signed in
       return const Scaffold(body: Center(child: Text('Not signed in')));
     }
 
-    // Build the base query and then optionally add the status filter
+    // Base Firestore query for the current user's donations
     Query<Map<String, dynamic>> donationsQuery = FirebaseFirestore.instance
         .collection('donations')
         .where('donorId', isEqualTo: uid);
 
+    // Apply status filter if not "All"
     if (_selectedStatus != allKey) {
       donationsQuery = donationsQuery.where(
         'status',
@@ -64,7 +87,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
       ),
       body: Column(
         children: [
-          // Filter row
+          // ---------------- Filter Row ----------------
           Container(
             color: const Color(0xFFF3F5F7),
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
@@ -99,7 +122,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
                           onChanged: (v) {
                             if (v == null) return;
                             setState(() {
-                              _selectedStatus = v;
+                              _selectedStatus = v; // update filter
                             });
                           },
                         ),
@@ -112,7 +135,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
                   tooltip: 'Clear filter',
                   onPressed: () {
                     setState(() {
-                      _selectedStatus = allKey;
+                      _selectedStatus = allKey; // reset filter
                     });
                   },
                   icon: const Icon(Icons.clear),
@@ -121,7 +144,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
             ),
           ),
 
-          // Expanded list area
+          // ---------------- Donation List ----------------
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: donationsQuery.snapshots(),
@@ -133,6 +156,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
+                // Sort donations by createdAt descending
                 final docs =
                     (snap.data?.docs ?? []).toList()..sort((a, b) {
                       final ta = a.data()['createdAt'] as Timestamp?;
@@ -142,6 +166,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
                       );
                     });
 
+                // Show empty message if no donations
                 if (docs.isEmpty) {
                   return Center(
                     child: Text(
@@ -153,6 +178,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
                   );
                 }
 
+                // List of donations
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: docs.length,
@@ -208,6 +234,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
     );
   }
 
+  // Confirm deletion of donation
   Future<bool?> _confirmDelete(BuildContext context) {
     return showDialog<bool>(
       context: context,
@@ -230,9 +257,7 @@ class _DonationHistoryScreenState extends State<DonationHistoryScreen> {
   }
 }
 
-// ----------------------- Donation Tile -----------------------
-// (kept mostly the same as you provided; shows servings, status, buttons)
-
+// ---------------- Donation Tile ----------------
 class _DonationTile extends StatelessWidget {
   final String id;
   final Map<String, dynamic> data;
@@ -240,7 +265,7 @@ class _DonationTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onViewRequester;
-  final VoidCallback onViewSchedule; // NEW
+  final VoidCallback onViewSchedule;
 
   const _DonationTile({
     required this.id,
@@ -277,6 +302,7 @@ class _DonationTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Name + status chip
           Row(
             children: [
               const Icon(Icons.fastfood, color: Colors.orange),
@@ -295,6 +321,8 @@ class _DonationTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
+
+          // Quantity, servings, expiry
           Row(
             children: [
               if (servings != null && servings > 0) ...[
@@ -329,6 +357,8 @@ class _DonationTile extends StatelessWidget {
             color: const Color(0xFFEFF1F4),
           ),
           const SizedBox(height: 8),
+
+          // Actions: createdAt + mini buttons
           Row(
             children: [
               Expanded(
@@ -337,12 +367,8 @@ class _DonationTile extends StatelessWidget {
                   style: const TextStyle(color: Colors.black45, fontSize: 12),
                 ),
               ),
-
-              // View
               _miniBtn(icon: Icons.visibility_outlined, onTap: onOpen),
               const SizedBox(width: 8),
-
-              // Edit and delete— only when pending
               if (status.toLowerCase() == 'pending') ...[
                 _miniBtn(icon: Icons.edit_outlined, onTap: onEdit),
                 _miniBtn(
@@ -355,7 +381,7 @@ class _DonationTile extends StatelessWidget {
             ],
           ),
 
-          // Extra button when requested/accepted
+          // Requester button
           if (status.toLowerCase() == 'requested' ||
               status.toLowerCase() == 'accepted') ...[
             const SizedBox(height: 10),
@@ -369,7 +395,7 @@ class _DonationTile extends StatelessWidget {
             ),
           ],
 
-          // Show "View Schedule" when scheduled/completed-like
+          // Schedule button
           if (isScheduled || isCompleted) ...[
             const SizedBox(height: 10),
             SizedBox(
@@ -394,6 +420,7 @@ class _DonationTile extends StatelessWidget {
     );
   }
 
+  // Mini icon button
   Widget _miniBtn({
     required IconData icon,
     required VoidCallback onTap,
@@ -416,6 +443,7 @@ class _DonationTile extends StatelessWidget {
     );
   }
 
+  // Format expiry date
   String? _expiryLabel(dynamic ts) {
     if (ts is! Timestamp) return null;
     final d = ts.toDate(), now = DateTime.now();
@@ -439,6 +467,7 @@ class _DonationTile extends StatelessWidget {
     return '${months[d.month - 1]} ${d.day.toString().padLeft(2, '0')}';
   }
 
+  // Format relative time for display
   String? _relativeTime(dynamic ts) {
     if (ts is! Timestamp) return null;
     final d = ts.toDate();
@@ -450,8 +479,7 @@ class _DonationTile extends StatelessWidget {
   }
 }
 
-// ----------------------- Status Chip -----------------------
-
+// ---------------- Status Chip ----------------
 class _StatusChip extends StatelessWidget {
   final String status;
   const _StatusChip({required this.status});
@@ -486,6 +514,7 @@ class _StatusChip extends StatelessWidget {
       fg = const Color(0xFFEF6C00);
       label = 'Pending';
     }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

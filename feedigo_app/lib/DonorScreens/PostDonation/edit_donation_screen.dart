@@ -1,3 +1,27 @@
+/*
+  This screen allows users to modify donation details including:
+    - Food name
+    - Food category/type
+    - Quantity (number + unit)
+    - Expiry date
+    - Pickup location (address + latitude/longitude)
+    - Description
+    - Photo (image upload)
+
+  Important Technical Terms / Concepts Used:
+    - StatefulWidget: Allows the screen to maintain state (e.g., form input, image selection, loading indicators)
+    - TextEditingController: Manages the content of text input fields
+    - FirebaseFirestore: Real-time cloud NoSQL database for reading and updating donation data
+    - FirebaseStorage: Cloud storage for uploading and storing donation images
+    - FirebaseFunctions: Serverless Cloud Functions for geocoding addresses (keeps API keys secure)
+    - FirebaseAuth: User authentication; used to fetch current user UID
+    - ImagePicker: Allows selecting images from camera or gallery
+    - Geocoding: Converts addresses to coordinates (latitude/longitude)
+    - Timestamp: Firestore date-time format
+    - StreamBuilder / Form validation: UI updates in real-time and ensures input correctness
+    - Async/Await & Future: Handles asynchronous operations such as network calls, Firestore reads/writes, and file uploads
+*/
+
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -7,8 +31,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 
+/// Screen for editing an existing donation
 class EditDonationScreen extends StatefulWidget {
   final String? donationId;
+
   const EditDonationScreen({super.key, this.donationId});
 
   @override
@@ -18,27 +44,27 @@ class EditDonationScreen extends StatefulWidget {
 class _EditDonationScreenState extends State<EditDonationScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // controllers
+  // Controllers for form input fields
   final _foodNameCtrl = TextEditingController();
   final _qtyNumberCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
 
-  DateTime? _expiryDate;
+  DateTime? _expiryDate; // Expiry date picker value
 
-  bool _saving = false;
-  bool _loading = true;
-  String? _error;
-  String? _docId;
+  bool _saving = false; // Shows saving progress
+  bool _loading = true; // Shows loading progress
+  String? _error; // Error message if any
+  String? _docId; // Firestore document ID for donation
 
-  File? _newImageFile;
-  String? _existingPhotoUrl;
+  File? _newImageFile; // New selected image
+  String? _existingPhotoUrl; // Already uploaded image URL
 
-  // current resolved coords for address shown in the field
+  // Coordinates for the pickup address
   double? _lat;
   double? _lng;
 
-  // Food types
+  // Food types with key-label mapping
   final List<Map<String, String>> _foodTypes = const [
     {'key': 'cooked', 'label': 'Cooked Meals'},
     {'key': 'produce', 'label': 'Fresh Produce'},
@@ -50,11 +76,11 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
   ];
   String? _selectedFoodTypeKey;
 
-  // Units
+  // Units for quantity
   final List<String> _units = ['kg', 'grams', 'plates', 'bottles', 'boxes'];
   String? _selectedUnit;
 
-  // --- profile address option (same as post screen) ---
+  // Option to use profile address for pickup
   bool _useProfileAddress = false;
   String? _profileAddress;
   double? _profileLat;
@@ -63,21 +89,23 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProfileAddress();
+    _loadProfileAddress(); // Load user's saved address (if any)
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_docId == null) {
+      // Get donation ID from widget argument or navigation argument
       final argId = ModalRoute.of(context)?.settings.arguments as String?;
       final id = widget.donationId ?? argId;
-      if (id != null) _load(id);
+      if (id != null) _load(id); // Load donation data from Firestore
     }
   }
 
   @override
   void dispose() {
+    // Dispose controllers to free memory
     _foodNameCtrl.dispose();
     _qtyNumberCtrl.dispose();
     _locationCtrl.dispose();
@@ -85,10 +113,12 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     super.dispose();
   }
 
+  /// Load saved profile address from user's Firestore document
   Future<void> _loadProfileAddress() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
+
       final snap =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final u = snap.data() ?? {};
@@ -115,10 +145,11 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
         });
       }
     } catch (_) {
-      // ignore
+      // ignore if fetching fails
     }
   }
 
+  /// Load donation data from Firestore into form fields
   Future<void> _load(String id) async {
     setState(() {
       _loading = true;
@@ -141,36 +172,37 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
         return;
       }
 
+      // Set food name
       _foodNameCtrl.text = (data['foodName'] ?? '').toString();
 
-      // Quantity split into number + unit
+      // Split quantity into number and unit
       final qtyStr = (data['quantity'] ?? '').toString();
       final parts = qtyStr.split(' ');
       if (parts.isNotEmpty) _qtyNumberCtrl.text = parts.first;
       if (parts.length > 1) {
         _selectedUnit = parts.sublist(1).join(' ');
-        if (!_units.contains(_selectedUnit)) {
-          // sanitize unexpected unit
-          _selectedUnit = _units.first;
-        }
+        if (!_units.contains(_selectedUnit)) _selectedUnit = _units.first;
       }
 
-      // Pickup address + coords
+      // Pickup location and coordinates
       _locationCtrl.text = (data['pickupInfo']?['address'] ?? '').toString();
       final lat = data['pickupInfo']?['lat'];
       final lng = data['pickupInfo']?['lng'];
       _lat = (lat is num) ? lat.toDouble() : null;
       _lng = (lng is num) ? lng.toDouble() : null;
 
+      // Description and category
       _descCtrl.text = (data['description'] ?? '').toString();
       _selectedFoodTypeKey = (data['category'] ?? '') as String?;
 
+      // Expiry date
       final expiryTs = data['expiryAt'];
       if (expiryTs is Timestamp) {
         final d = expiryTs.toDate();
         _expiryDate = DateTime(d.year, d.month, d.day);
       }
 
+      // Existing photo URL
       _existingPhotoUrl = data['photoUrl'] as String?;
     } catch (e) {
       _error = 'Failed to load donation.';
@@ -179,6 +211,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     }
   }
 
+  /// Pick an image using camera or gallery
   Future<void> _pickImage() async {
     try {
       final source = await showDialog<ImageSource>(
@@ -199,6 +232,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
               ],
             ),
       );
+
       if (source == null) return;
 
       final picker = ImagePicker();
@@ -207,10 +241,9 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
         imageQuality: 80,
         maxWidth: 1600,
       );
-      if (x != null && mounted) {
-        setState(() => _newImageFile = File(x.path));
-      }
+      if (x != null && mounted) setState(() => _newImageFile = File(x.path));
 
+      // Handle lost data from interrupted image picking
       final lost = await picker.retrieveLostData();
       if (!lost.isEmpty && lost.file != null && mounted) {
         setState(() => _newImageFile = File(lost.file!.path));
@@ -220,18 +253,22 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     }
   }
 
+  /// Upload selected image to Firebase Storage and return URL
   Future<String?> _uploadPhoto(String donationId) async {
     if (_newImageFile == null) return null;
+
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final ref = FirebaseStorage.instance
         .ref()
         .child('donations')
         .child(uid)
         .child('$donationId.jpg');
+
     final task = await ref.putFile(_newImageFile!);
     return await task.ref.getDownloadURL();
   }
 
+  /// Pick expiry date using date picker
   Future<void> _pickDate() async {
     final today = DateUtils.dateOnly(DateTime.now());
     final firstDate = today;
@@ -252,30 +289,24 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     if (picked != null) setState(() => _expiryDate = picked);
   }
 
+  /// Save changes to Firestore, upload photo if any, and resolve geocoding
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedFoodTypeKey == null) {
-      _snack('Please select a food type.');
-      return;
-    }
-    if (_selectedUnit == null) {
-      _snack('Please select a unit.');
-      return;
-    }
-    if (_expiryDate == null) {
-      _snack('Please select an expiry date.');
-      return;
-    }
+
+    if (_selectedFoodTypeKey == null)
+      return _snack('Please select a food type.');
+    if (_selectedUnit == null) return _snack('Please select a unit.');
+    if (_expiryDate == null) return _snack('Please select an expiry date.');
     if (_docId == null) return;
 
     setState(() => _saving = true);
 
     try {
-      // Decide final address & coords before saving
       String address = _locationCtrl.text.trim();
       double? lat = _lat;
       double? lng = _lng;
 
+      // Use profile address if checkbox selected
       if (_useProfileAddress && (_profileAddress?.isNotEmpty ?? false)) {
         address = _profileAddress!;
         lat = _profileLat;
@@ -286,9 +317,8 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
           lng = coords?.$2;
         }
       } else {
-        // if address text changed, try to re-geocode
+        // Re-geocode if address changed
         final coords = await _geocodeAddress(address);
-        // keep previous lat/lng if geocode fails
         if (coords != null) {
           lat = coords.$1;
           lng = coords.$2;
@@ -299,7 +329,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
           (_foodTypes.firstWhere(
             (t) => t['key'] == _selectedFoodTypeKey,
             orElse: () => const {'key': 'other', 'label': 'Other'},
-          )['label'])!;
+          ))['label']!;
 
       final update = {
         'foodName': _foodNameCtrl.text.trim(),
@@ -330,6 +360,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
           .doc(_docId);
       await docRef.update(update);
 
+      // Upload photo if selected
       final url = await _uploadPhoto(_docId!);
       if (url != null) {
         await docRef.update({
@@ -349,11 +380,11 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     }
   }
 
-  /// Try Cloud Function (LocationIQ) first; fallback to device geocoding.
+  /// Resolve address to latitude and longitude (Cloud Function first, fallback device geocoding)
   Future<(double, double)?> _geocodeAddress(String address) async {
     if (address.isEmpty) return null;
 
-    // Cloud Function call (recommended – keeps API key server-side)
+    // Try Firebase Cloud Function first (server-side)
     try {
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
       final callable = functions.httpsCallable('geocodeAddress');
@@ -367,7 +398,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
       });
       return (lat, lng);
     } catch (_) {
-      // ignore and try fallback
+      // fallback
     }
 
     // Fallback: device geocoding
@@ -381,9 +412,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
         });
         return (loc.latitude, loc.longitude);
       }
-    } catch (_) {
-      // swallow
-    }
+    } catch (_) {}
 
     _snack('Could not locate that address—saved without new coordinates.');
     return null;
@@ -517,11 +546,9 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
                               ],
                             ),
                             const SizedBox(height: 14),
-
                             _card(
                               title: 'Pickup Information',
                               children: [
-                                // checkbox to use profile address
                                 Row(
                                   children: [
                                     Checkbox(
@@ -538,8 +565,6 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
                                                         _profileAddress ?? '';
                                                     _lat = _profileLat;
                                                     _lng = _profileLng;
-                                                  } else {
-                                                    // keep existing doc address; don't clear field automatically here
                                                   }
                                                 });
                                               },
@@ -575,7 +600,6 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
                                 ],
                               ],
                             ),
-
                             const SizedBox(height: 14),
                             _card(
                               title: 'Additional Information',
@@ -594,7 +618,6 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
                               ],
                             ),
                             const SizedBox(height: 20),
-
                             SizedBox(
                               width: double.infinity,
                               height: 52,
@@ -628,6 +651,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     );
   }
 
+  // Common input decoration
   InputDecoration _fieldDecoration(String label) => InputDecoration(
     labelText: label,
     filled: true,
@@ -643,6 +667,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
   );
 
+  // Card wrapper
   Widget _card({required String title, required List<Widget> children}) {
     return Container(
       width: double.infinity,
@@ -672,6 +697,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     );
   }
 
+  // Text input field
   Widget _textField({
     required String label,
     String? hint,
@@ -687,6 +713,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     );
   }
 
+  // Date picker input
   Widget _pickerField({
     required String label,
     required String value,
@@ -709,6 +736,7 @@ class _EditDonationScreenState extends State<EditDonationScreen> {
     );
   }
 
+  // Photo picker widget
   Widget _photoPicker({
     required VoidCallback onTap,
     File? imageFile,

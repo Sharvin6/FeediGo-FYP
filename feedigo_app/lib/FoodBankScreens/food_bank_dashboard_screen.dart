@@ -1,29 +1,51 @@
-import 'dart:io' show Platform;
+/*
+  FoodBankDashboardScreen: Flutter StatelessWidget for Food Bank Dashboard
 
+  Purpose:
+  - Show overview of food requests, approved donations, completed meals, pickup schedule.
+  - Enable requesting food, viewing history, scheduling, and confirming pickups.
+
+  Key Technical Points:
+  - FirebaseAuth: get current user UID.
+  - FirebaseFirestore: fetch 'donation_requests' & 'donations' in real-time.
+  - StreamBuilder: reactive UI for real-time Firestore updates.
+  - Nested StreamBuilders: combine multiple streams.
+  - Data Processing: calculate pending requests, approved donations, total meals, latest status per donation.
+  - _Donation Model: wrap Firestore data, include pickup info.
+  - UI Components: OverviewCard, ScheduleTile, SmallButton, StatusChip, EmptySchedule.
+  - Maps Integration: open Google Maps (geo: Android / HTTPS fallback).
+  - Conditional Actions: schedule, view, confirm pickup based on status.
+  - Safe Date Conversion: _asDate() converts Timestamp to DateTime.
+*/
+
+import 'dart:io' show Platform;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+/// Dashboard screen for food bank users to manage requests and pickups
 class FoodBankDashboardScreen extends StatelessWidget {
   const FoodBankDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     const orange = Color.fromARGB(255, 255, 109, 36);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
 
+    // Get current user ID from FirebaseAuth
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       return const Scaffold(body: Center(child: Text('Not signed in')));
     }
 
-    // Streams we’ll use
+    // Stream for all requests sent by this food bank
     final requestsStream =
         FirebaseFirestore.instance
             .collection('donation_requests')
             .where('recipientId', isEqualTo: uid)
             .snapshots();
 
+    // Stream for all donations accepted/scheduled/completed by this food bank
     final acceptedDonationsStream =
         FirebaseFirestore.instance
             .collection('donations')
@@ -42,9 +64,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
-              Navigator.pushNamed(context, '/settings_screen');
-            },
+            onPressed: () => Navigator.pushNamed(context, '/settings_screen'),
           ),
         ],
       ),
@@ -67,7 +87,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
                     )
                     .length;
 
-            // Build "Your:" status map (latest per donationId)
+            // Build latest status per donation
             final Map<String, String> myStatusByDonation = {};
             final Map<String, DateTime> latestTs = {};
             for (final doc in (reqSnap.data?.docs ?? [])) {
@@ -85,7 +105,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
               }
             }
 
-            // Nest the accepted donations stream
+            // Nest stream for accepted donations
             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: acceptedDonationsStream,
               builder: (context, donSnap) {
@@ -100,7 +120,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
 
                 final acceptedDocs = (donSnap.data?.docs ?? []).toList();
 
-                // Approved = accepted/scheduled (not completed yet)
+                // Count approved donations (accepted/scheduled)
                 final approvedDonations =
                     acceptedDocs.where((d) {
                       final s =
@@ -109,7 +129,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
                       return s == 'accepted' || s == 'scheduled';
                     }).length;
 
-                // Total meals = sum(servings) for completed
+                // Total meals (sum of servings for completed donations)
                 final totalMeals = acceptedDocs.fold<int>(0, (acc, d) {
                   final data = d.data();
                   final status = (data['status'] ?? 'pending') as String;
@@ -119,7 +139,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
                   return acc;
                 });
 
-                // Build schedule list like in PickupSchedule: accepted/scheduled/completed
+                // Build pickup schedule list
                 final schedule =
                     acceptedDocs
                         .where((d) {
@@ -131,19 +151,16 @@ class FoodBankDashboardScreen extends StatelessWidget {
                         .map((doc) => _Donation.wrap(doc.id, doc.data()))
                         .toList()
                       ..sort((a, b) {
-                        // Sort by pickup time (scheduled first), then title.
                         final ta = a.pickupTime;
                         final tb = b.pickupTime;
-                        if (ta == null && tb == null) {
+                        if (ta == null && tb == null)
                           return a.title.compareTo(b.title);
-                        } else if (ta == null) {
-                          return 1;
-                        } else if (tb == null) {
-                          return -1;
-                        }
+                        if (ta == null) return 1;
+                        if (tb == null) return -1;
                         return ta.compareTo(tb);
                       });
 
+                // Build main dashboard UI
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   children: [
@@ -153,6 +170,8 @@ class FoodBankDashboardScreen extends StatelessWidget {
                       meals: totalMeals,
                     ),
                     const SizedBox(height: 12),
+
+                    // Button to request new food
                     SizedBox(
                       height: 52,
                       child: ElevatedButton.icon(
@@ -170,6 +189,8 @@ class FoodBankDashboardScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Button to view request history
                     SizedBox(
                       height: 52,
                       child: ElevatedButton.icon(
@@ -191,6 +212,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
+                    // Pickup schedule header
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -212,6 +234,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
                       ],
                     ),
 
+                    // Show schedule or empty placeholder
                     if (schedule.isEmpty)
                       _EmptySchedule(
                         onBrowse:
@@ -219,7 +242,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
                       )
                     else
                       ...schedule
-                          .take(3) // show only top 3
+                          .take(3)
                           .map(
                             (d) => _ScheduleTile(
                               model: d,
@@ -246,13 +269,12 @@ class FoodBankDashboardScreen extends StatelessWidget {
                                     '/pickup_schedule_details',
                                     arguments: d.id,
                                   ),
-                              onConfirmPickup: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/confirm_pickup',
-                                  arguments: d.id, // pass donationId
-                                );
-                              },
+                              onConfirmPickup:
+                                  () => Navigator.pushNamed(
+                                    context,
+                                    '/confirm_pickup',
+                                    arguments: d.id,
+                                  ),
                             ),
                           ),
                   ],
@@ -265,6 +287,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
     );
   }
 
+  /// Error display widget
   static Widget _errorBox(String msg) => Center(
     child: Padding(
       padding: const EdgeInsets.all(16),
@@ -272,13 +295,14 @@ class FoodBankDashboardScreen extends StatelessWidget {
     ),
   );
 
+  /// Converts Timestamp or DateTime to DateTime safely
   static DateTime? _asDate(dynamic ts) {
     if (ts is Timestamp) return ts.toDate();
     if (ts is DateTime) return ts;
     return null;
   }
 
-  /// Opens Google Maps. Uses `geo:` on Android, falls back to HTTPS Maps URL, then in-app.
+  /// Open Google Maps with donation address
   static Future<void> _openMaps(String address) async {
     final trimmed = address.trim();
     if (trimmed.isEmpty) return;
@@ -293,16 +317,14 @@ class FoodBankDashboardScreen extends StatelessWidget {
       await launchUrl(geo, mode: LaunchMode.externalApplication);
       return;
     }
-
     if (await canLaunchUrl(https)) {
       await launchUrl(https, mode: LaunchMode.externalApplication);
       return;
     }
-
-    // Last resort: open in in-app webview
     await launchUrl(https, mode: LaunchMode.inAppBrowserView);
   }
 
+  /// Confirmation dialog
   Future<bool?> _confirm(
     BuildContext context, {
     required String title,
@@ -329,7 +351,7 @@ class FoodBankDashboardScreen extends StatelessWidget {
   }
 }
 
-// ----------------------- Widgets -----------------------
+// ----------------------- Dashboard Widgets -----------------------
 
 class _OverviewCard extends StatelessWidget {
   final int pending;
@@ -390,6 +412,7 @@ class _OverviewCard extends StatelessWidget {
   );
 }
 
+/// Tile for each scheduled pickup in dashboard
 class _ScheduleTile extends StatelessWidget {
   final _Donation model;
   final String? personalStatus;
@@ -414,18 +437,16 @@ class _ScheduleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = model;
     final address = d.pickupAddress ?? '';
-
     final isApprovedOnly = d.status == 'approved' || d.status == 'accepted';
     final hasSchedule = d.pickupTime != null;
-    final canSchedule = (isApprovedOnly) && !hasSchedule;
+    final canSchedule = isApprovedOnly && !hasSchedule;
     final canViewSchedule = hasSchedule;
-    final canConfirm = d.status == 'scheduled'; // show Confirm Pickup
-
+    final canConfirm = d.status == 'scheduled';
     final timeLabel = _rangeLabel(d.pickupTime, d.pickupEndTime);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -436,7 +457,6 @@ class _ScheduleTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title + status chips
           Row(
             children: [
               Expanded(
@@ -456,7 +476,6 @@ class _ScheduleTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-
           if (timeLabel != null)
             Text(timeLabel, style: const TextStyle(color: Colors.black87)),
           if (address.isNotEmpty)
@@ -464,10 +483,7 @@ class _ScheduleTile extends StatelessWidget {
               address,
               style: const TextStyle(fontSize: 13, color: Colors.black87),
             ),
-
           const SizedBox(height: 10),
-
-          // Actions (mirrors PickupSchedule card)
           Wrap(
             spacing: 10,
             runSpacing: 8,
@@ -485,13 +501,6 @@ class _ScheduleTile extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
                   ),
                   onPressed: onSchedule,
                 ),
@@ -504,19 +513,11 @@ class _ScheduleTile extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2E7D32),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
                   ),
                   onPressed: onConfirmPickup,
                 ),
             ],
           ),
-
           if (canSchedule) ...[
             const SizedBox(height: 6),
             const Text(
@@ -544,11 +545,11 @@ class _ScheduleTile extends StatelessWidget {
   }
 }
 
+/// Small reusable button widget
 class _SmallButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final IconData? icon;
-
   const _SmallButton({required this.label, this.onTap}) : icon = null;
   const _SmallButton.icon({
     required this.icon,
@@ -577,9 +578,10 @@ class _SmallButton extends StatelessWidget {
   }
 }
 
+/// Chip to indicate donation/request status
 class _StatusChip extends StatelessWidget {
   final String status;
-  final bool personal; // supports "Your: ..."
+  final bool personal; // supports "Your: ..." labels
   const _StatusChip({required this.status, this.personal = false});
 
   @override
@@ -627,8 +629,7 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-// ----------------------- Model -----------------------
-
+/// Donation model wrapper for Firestore data
 class _Donation {
   final String id;
   final String title;
@@ -671,6 +672,7 @@ class _Donation {
   }
 }
 
+/// Empty state for schedule
 class _EmptySchedule extends StatelessWidget {
   final VoidCallback onBrowse;
   const _EmptySchedule({required this.onBrowse});

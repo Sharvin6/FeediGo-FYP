@@ -241,6 +241,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       TextFormField(
                         controller: _phoneCtrl,
                         decoration: const InputDecoration(
+                          
                           labelText: "Phone",
                           prefixIcon: Icon(Icons.phone),
                           border: OutlineInputBorder(),

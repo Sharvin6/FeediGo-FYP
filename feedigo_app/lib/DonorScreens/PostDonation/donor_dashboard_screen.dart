@@ -1,7 +1,28 @@
+/*
+  This screen is the main dashboard for donors. It displays statistics like total donations, 
+  donations in progress, and meals helped. Users can see recent donations, post a new donation, 
+  edit or delete existing donations, and view donation schedules or requester details. 
+  It fetches donation data in real-time from Firestore.
+
+  Technical Explanation:
+
+  - State Management: Uses StreamBuilder for real-time Firestore updates.
+  - Firestore Queries: Filters donations by donorId and sorts by createdAt.
+  - Statistics Calculation: Calculates total donations, in-progress donations, and meals helped client-side.
+  - Reusable Widgets: _ImpactCard for stats, _DonationTile for each donation.
+  - Conditional UI: Displays buttons like Edit/Delete/Pending/Completed depending on donation status.
+  - User Experience: Empty state and navigation to post new donation improves usability.
+  - Time Handling: _relativeTime and _expiryLabel convert Firestore timestamps to human-readable formats.
+  - Action Handling: Confirms deletion before removing data and prevents accidental data loss.
+
+*/
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+/// Donor Dashboard Screen
+/// Displays donor stats, recent donations, and allows posting new donations.
 class DonorDashboardScreen extends StatelessWidget {
   const DonorDashboardScreen({super.key});
 
@@ -9,12 +30,14 @@ class DonorDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     const orange = Color.fromARGB(255, 255, 109, 36);
 
+    // Get current logged-in user's UID
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
+      // If user not signed in, show error
       return const Scaffold(body: Center(child: Text('Not signed in')));
     }
 
-    // Keep simple query (no composite index needed)
+    // Query donations from Firestore where donorId matches current user
     final donationsQuery = FirebaseFirestore.instance
         .collection('donations')
         .where('donorId', isEqualTo: uid);
@@ -33,6 +56,7 @@ class DonorDashboardScreen extends StatelessWidget {
             color: Colors.white,
           ),
         ),
+        // Settings button
         actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
@@ -41,10 +65,12 @@ class DonorDashboardScreen extends StatelessWidget {
         ],
       ),
       body: SafeArea(
+        // Listen to donation changes in real-time
         child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: donationsQuery.snapshots(),
           builder: (context, snap) {
             if (snap.hasError) {
+              // Show error message if query fails
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -57,10 +83,11 @@ class DonorDashboardScreen extends StatelessWidget {
             }
 
             if (snap.connectionState == ConnectionState.waiting) {
+              // Show loading indicator while fetching
               return const Center(child: CircularProgressIndicator());
             }
 
-            // Sort client-side by createdAt desc
+            // Sort donations by createdAt timestamp in descending order
             final docs =
                 (snap.data?.docs ?? []).toList()..sort((a, b) {
                   final ta = a.data()['createdAt'];
@@ -70,6 +97,7 @@ class DonorDashboardScreen extends StatelessWidget {
                   return db.compareTo(da);
                 });
 
+            // Calculate statistics
             final total = docs.length;
             final inProgress =
                 docs
@@ -89,6 +117,7 @@ class DonorDashboardScreen extends StatelessWidget {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
+                // Top stats card
                 _ImpactCard(
                   total: total,
                   inProgress: inProgress,
@@ -96,6 +125,7 @@ class DonorDashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
 
+                // Post new donation button
                 SizedBox(
                   height: 52,
                   child: ElevatedButton.icon(
@@ -115,6 +145,7 @@ class DonorDashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
+                // Section header for recent donations
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -134,12 +165,14 @@ class DonorDashboardScreen extends StatelessWidget {
                   ],
                 ),
 
+                // Show empty state if no donations
                 if (docs.isEmpty)
                   _EmptyState(
                     onPost:
                         () => Navigator.pushNamed(context, '/post_donation'),
                   )
                 else
+                  // Show up to 3 recent donations
                   ...docs.take(3).map((doc) {
                     final data = doc.data();
                     return _DonationTile(
@@ -172,7 +205,6 @@ class DonorDashboardScreen extends StatelessWidget {
                             '/requestor_details',
                             arguments: doc.id,
                           ),
-                      // NEW: navigate to donor schedule view
                       onViewSchedule:
                           () => Navigator.pushNamed(
                             context,
@@ -189,6 +221,7 @@ class DonorDashboardScreen extends StatelessWidget {
     );
   }
 
+  /// Show confirmation dialog before deleting a donation
   Future<bool?> _confirmDelete(BuildContext context) {
     return showDialog<bool>(
       context: context,
@@ -211,12 +244,12 @@ class DonorDashboardScreen extends StatelessWidget {
   }
 }
 
-// === Stats card ===============================================================
-
+/// ====== Stats Card ======
 class _ImpactCard extends StatelessWidget {
   final int total;
   final int inProgress;
   final int meals;
+
   const _ImpactCard({
     required this.total,
     required this.inProgress,
@@ -271,8 +304,7 @@ class _ImpactCard extends StatelessWidget {
   );
 }
 
-// === Donation Tile (now with "View Schedule" support) ========================
-
+/// ====== Donation Tile ======
 class _DonationTile extends StatelessWidget {
   final String id;
   final Map<String, dynamic> data;
@@ -317,6 +349,7 @@ class _DonationTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Donation header: name + status
           Row(
             children: [
               const Icon(Icons.fastfood, color: Colors.orange),
@@ -334,7 +367,10 @@ class _DonationTile extends StatelessWidget {
               _StatusChip(status: status),
             ],
           ),
+
           const SizedBox(height: 8),
+
+          // Info row: servings, quantity, expiry
           Row(
             children: [
               if (servings != null && servings > 0) ...[
@@ -362,6 +398,7 @@ class _DonationTile extends StatelessWidget {
               ],
             ],
           ),
+
           const SizedBox(height: 8),
           Container(
             height: 2,
@@ -369,6 +406,8 @@ class _DonationTile extends StatelessWidget {
             color: const Color(0xFFEFF1F4),
           ),
           const SizedBox(height: 8),
+
+          // Action buttons: view, edit, delete
           Row(
             children: [
               Expanded(
@@ -377,12 +416,8 @@ class _DonationTile extends StatelessWidget {
                   style: const TextStyle(color: Colors.black45, fontSize: 12),
                 ),
               ),
-
-              // View
               _miniBtn(icon: Icons.visibility_outlined, onTap: onOpen),
               const SizedBox(width: 8),
-
-              // Edit and delete— only when pending
               if (status.toLowerCase() == 'pending') ...[
                 _miniBtn(icon: Icons.edit_outlined, onTap: onEdit),
                 _miniBtn(
@@ -395,7 +430,7 @@ class _DonationTile extends StatelessWidget {
             ],
           ),
 
-          // Show "View Requester Details" for requested/accepted
+          // Optional requester button
           if (status.toLowerCase() == 'requested' ||
               status.toLowerCase() == 'accepted') ...[
             const SizedBox(height: 10),
@@ -409,7 +444,7 @@ class _DonationTile extends StatelessWidget {
             ),
           ],
 
-          // NEW: Show "View Schedule" when scheduled
+          // Optional schedule button
           if (isScheduled || isCompleted) ...[
             const SizedBox(height: 10),
             SizedBox(
@@ -434,6 +469,7 @@ class _DonationTile extends StatelessWidget {
     );
   }
 
+  /// Mini action button
   Widget _miniBtn({
     required IconData icon,
     required VoidCallback onTap,
@@ -456,6 +492,7 @@ class _DonationTile extends StatelessWidget {
     );
   }
 
+  /// Format expiry date
   String? _expiryLabel(dynamic ts) {
     if (ts is! Timestamp) return null;
     final d = ts.toDate(), now = DateTime.now();
@@ -479,6 +516,7 @@ class _DonationTile extends StatelessWidget {
     return '${months[d.month - 1]} ${d.day.toString().padLeft(2, '0')}';
   }
 
+  /// Relative time display (e.g., 2 hours ago)
   String? _relativeTime(dynamic ts) {
     if (ts is! Timestamp) return null;
     final d = ts.toDate();
@@ -490,8 +528,7 @@ class _DonationTile extends StatelessWidget {
   }
 }
 
-// === Status chip =============================================================
-
+/// ====== Status Chip ======
 class _StatusChip extends StatelessWidget {
   final String status;
   const _StatusChip({required this.status});
@@ -501,6 +538,8 @@ class _StatusChip extends StatelessWidget {
     final s = status.toLowerCase();
     Color bg, fg;
     String label;
+
+    // Map status to color and label
     if (s == 'accepted') {
       bg = const Color(0xFFE6F6EA);
       fg = const Color(0xFF2E7D32);
@@ -526,6 +565,7 @@ class _StatusChip extends StatelessWidget {
       fg = const Color(0xFFEF6C00);
       label = 'Pending';
     }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -540,8 +580,7 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-// === Empty state =============================================================
-
+/// ====== Empty State ======
 class _EmptyState extends StatelessWidget {
   final VoidCallback onPost;
   const _EmptyState({required this.onPost});

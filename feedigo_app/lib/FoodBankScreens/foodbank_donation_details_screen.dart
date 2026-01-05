@@ -1,3 +1,27 @@
+/*
+  FoodBankDonationDetailsScreen: 
+  Purpose:
+  - Displays detailed information about a specific food donation.
+  - Allows food banks to request or cancel pickup for a donation.
+  - Shows donor info, donation details, map, quantity, type, expiry, and status.
+  Key Technical Terms / Concepts:
+  1. FirebaseAuth:- Used to get the current logged-in user's UID (recipient) for filtering requests.
+  2. FirebaseFirestore:
+     - Cloud NoSQL database to fetch donation data and user requests.
+     - `donations` collection: stores donation details.
+     - `donation_requests` collection: stores requests made by recipients.
+     - `users` collection: stores donor info.
+  3. StreamBuilder:- Reactively listens to Firestore streams to display real-time donation and request data.
+  4. Timestamp & DateTime:- Firestore Timestamps converted to Dart DateTime for date calculations.
+  5. Conditional UI:- Shows/hides buttons depending on donation/request status.
+  6. Maps Integration:- `_openMaps` launches Google Maps for pickup location.
+  7. Status Chips:- `_statusChip` visually differentiates donation/request statuses (pending, requested, accepted, completed).
+  8. Networking:- `_launchPhone` opens phone dialer for donor contact.
+  9. Helpers:
+     - `_relative` shows relative time (e.g., "2 hours ago") for posted donation.
+     - `_asDate` safely converts Firestore timestamps to Dart DateTime.
+*/
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -13,28 +37,33 @@ class FoodBankDonationDetailsScreen extends StatefulWidget {
 
 class _FoodBankDonationDetailsScreenState
     extends State<FoodBankDonationDetailsScreen> {
-  late final String donationId;
-  final String? uid = FirebaseAuth.instance.currentUser?.uid;
-  bool _busy = false;
+  late final String donationId; // ID of the donation being viewed
+  final String? uid = FirebaseAuth.instance.currentUser?.uid; // current user
+  bool _busy = false; // busy state for request/cancel actions
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Get donationId passed via Navigator arguments
     donationId = (ModalRoute.of(context)?.settings.arguments as String?) ?? '';
   }
 
   @override
   Widget build(BuildContext context) {
     const orange = Color.fromARGB(255, 255, 109, 36);
+
+    // Invalid state check
     if (donationId.isEmpty || uid == null) {
       return const Scaffold(body: Center(child: Text('Invalid donation')));
     }
 
+    // Firestore references
     final donationRef = FirebaseFirestore.instance
         .collection('donations')
         .doc(donationId);
 
     final donationStream = donationRef.snapshots();
+
     final myReqStream =
         FirebaseFirestore.instance
             .collection('donation_requests')
@@ -58,17 +87,17 @@ class _FoodBankDonationDetailsScreenState
         child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: donationStream,
           builder: (context, snap) {
-            if (snap.hasError) {
-              return _center('Error: ${snap.error}');
-            }
+            if (snap.hasError) return _center('Error: ${snap.error}');
             if (!snap.hasData || !snap.data!.exists) {
               return const Center(child: CircularProgressIndicator());
             }
+
             final d = snap.data!.data()!;
             final title = (d['title'] ?? d['foodName'] ?? 'Donation') as String;
             final qty = (d['quantity'] ?? '') as String;
             final photoUrl = d['photoUrl'] as String?;
-            final status = (d['status'] ?? 'pending') as String; // GLOBAL
+            final status =
+                (d['status'] ?? 'pending') as String; // GLOBAL status
             final desc = (d['description'] ?? '') as String;
             final type = (d['foodTypeLabel'] ?? '') as String;
             final donorId = (d['donorId'] ?? '') as String;
@@ -76,6 +105,7 @@ class _FoodBankDonationDetailsScreenState
             final expiry = _asDate(d['expiryAt']);
             final pickupAddr = (d['pickupInfo']?['address'] ?? '') as String;
 
+            // Nested StreamBuilder: listens to user's request for this donation
             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: myReqStream,
               builder: (context, reqSnap) {
@@ -84,7 +114,7 @@ class _FoodBankDonationDetailsScreenState
                 final reqStatus =
                     hasReq
                         ? (reqDoc!.data()['status'] as String? ?? 'pending')
-                        : null; // PERSONAL
+                        : null; // PERSONAL status
 
                 final canRequest = status == 'pending' && !hasReq;
                 final canCancel = hasReq && reqStatus == 'pending';
@@ -96,13 +126,12 @@ class _FoodBankDonationDetailsScreenState
                       title: title,
                       qty: qty,
                       globalStatus: status,
-                      personalStatus: reqStatus, // personal
+                      personalStatus: reqStatus,
                       type: type,
                       photoUrl: photoUrl,
                       createdAt: _asDate(d['createdAt']),
                     ),
                     const SizedBox(height: 12),
-
                     _sectionCard('Donation Details', [
                       _iconRow(
                         Icons.schedule,
@@ -116,14 +145,11 @@ class _FoodBankDonationDetailsScreenState
                         onTap: () => _openMaps(pickupAddr),
                       ),
                     ]),
-                    const SizedBox(height: 12),
-
                     if (desc.isNotEmpty)
                       _sectionCard('Description', [
                         Text(desc, style: const TextStyle(fontSize: 14)),
                       ]),
                     if (desc.isNotEmpty) const SizedBox(height: 12),
-
                     _sectionCard('Location Map', [
                       _mapStub(onTap: () => _openMaps(pickupAddr)),
                       const SizedBox(height: 6),
@@ -137,10 +163,8 @@ class _FoodBankDonationDetailsScreenState
                       ),
                     ]),
                     const SizedBox(height: 12),
-
                     _DonorInfo(donorId: donorId, buildSection: _sectionCard),
                     const SizedBox(height: 16),
-
                     Row(
                       children: [
                         Expanded(
@@ -202,7 +226,8 @@ class _FoodBankDonationDetailsScreenState
     );
   }
 
-  // ---------- actions ----------
+  // ---------- Actions ----------
+  /// Sends a pickup request for the donation.
   Future<void> _requestPickup() async {
     if (_busy || uid == null) return;
     setState(() => _busy = true);
@@ -212,14 +237,13 @@ class _FoodBankDonationDetailsScreenState
           .collection('donations')
           .doc(donationId);
 
-      // prevent duplicates
+      // Prevent duplicate request
       final dup =
           await reqs
               .where('donationId', isEqualTo: donationId)
               .where('recipientId', isEqualTo: uid)
               .limit(1)
               .get();
-
       if (dup.docs.isNotEmpty) {
         _snack('You already requested this donation.');
       } else {
@@ -229,13 +253,11 @@ class _FoodBankDonationDetailsScreenState
           'status': 'pending',
           'createdAt': FieldValue.serverTimestamp(),
         });
-
         await donationRef.update({
           'status': 'requested',
           'updatedAt': FieldValue.serverTimestamp(),
           'lastRequestId': doc.id,
         });
-
         _snack('Request sent! Waiting for donor approval.');
       }
     } catch (_) {
@@ -245,6 +267,7 @@ class _FoodBankDonationDetailsScreenState
     }
   }
 
+  /// Cancels a previously made pickup request.
   Future<void> _cancelRequest(String requestId) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -252,14 +275,12 @@ class _FoodBankDonationDetailsScreenState
       final donationRef = FirebaseFirestore.instance
           .collection('donations')
           .doc(donationId);
-
-      // delete request
       await FirebaseFirestore.instance
           .collection('donation_requests')
           .doc(requestId)
           .delete();
 
-      // check if any requests left
+      // Check if any requests remain
       final remaining =
           await FirebaseFirestore.instance
               .collection('donation_requests')
@@ -283,22 +304,23 @@ class _FoodBankDonationDetailsScreenState
     }
   }
 
-  // ---------- helpers ----------
+  // ---------- Helpers ----------
   void _snack(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
+  /// Converts Firestore Timestamp to Dart DateTime.
   static DateTime? _asDate(dynamic ts) {
     if (ts is Timestamp) return ts.toDate();
     if (ts is DateTime) return ts;
     return null;
   }
 
+  /// Formats expiry date nicely.
   static String _expiryLabel(DateTime? d) {
     if (d == null) return '-';
     final now = DateTime.now();
-    final today =
-        d.year == now.year && d.month == now.month && d.day == now.day;
-    if (today) return 'Today';
+    if (d.year == now.year && d.month == now.month && d.day == now.day)
+      return 'Today';
     const m = [
       'Jan',
       'Feb',
@@ -316,6 +338,7 @@ class _FoodBankDonationDetailsScreenState
     return '${m[d.month - 1]} ${d.day.toString().padLeft(2, '0')}';
   }
 
+  /// Opens Google Maps for a given address.
   static Future<void> _openMaps(String address) async {
     if (address.isEmpty) return;
     final uri = Uri.parse(
@@ -339,7 +362,7 @@ class _FoodBankDonationDetailsScreenState
     required DateTime? createdAt,
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -364,9 +387,9 @@ class _FoodBankDonationDetailsScreenState
               Wrap(
                 spacing: 6,
                 children: [
-                  _statusChip(globalStatus), // global
+                  _statusChip(globalStatus),
                   if (personalStatus != null && personalStatus.isNotEmpty)
-                    _statusChip(personalStatus, personal: true), // personal
+                    _statusChip(personalStatus, personal: true),
                 ],
               ),
             ],
@@ -405,7 +428,7 @@ class _FoodBankDonationDetailsScreenState
 
   Widget _sectionCard(String title, List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -538,6 +561,7 @@ class _FoodBankDonationDetailsScreenState
   }
 }
 
+/// Displays Donor Information section
 class _DonorInfo extends StatelessWidget {
   final String donorId;
   final Widget Function(String, List<Widget>) buildSection;
@@ -557,19 +581,17 @@ class _DonorInfo extends StatelessWidget {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: ref.snapshots(),
       builder: (context, snap) {
-        if (snap.hasError) {
+        if (snap.hasError)
           return buildSection('Donor Information', const [
             Text(
               'Error loading donor info',
               style: TextStyle(color: Colors.black54, fontSize: 12),
             ),
           ]);
-        }
-        if (!snap.hasData || !snap.data!.exists) {
+        if (!snap.hasData || !snap.data!.exists)
           return buildSection('Donor Information', const [
             LinearProgressIndicator(minHeight: 2),
           ]);
-        }
 
         final u = snap.data!.data()!;
         final isOrg = u['isOrganization'] == true;
@@ -578,7 +600,6 @@ class _DonorInfo extends StatelessWidget {
             isOrg
                 ? (u['organization']?['phone'] as String?) ?? ''
                 : (u['profile']?['phone'] as String?) ?? '';
-
         final contactName =
             isOrg
                 ? (u['organization']?['contactName'] as String?) ?? ''
@@ -643,43 +664,45 @@ class _DonorInfo extends StatelessWidget {
     required String value,
     VoidCallback? onTap,
   }) {
-    final row = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: Colors.black54),
-        const SizedBox(width: 8),
-        Expanded(
-          child: GestureDetector(
-            onTap: onTap,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: Colors.black54),
+          const SizedBox(width: 8),
+          Expanded(
+            child: GestureDetector(
+              onTap: onTap,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: onTap != null ? Colors.blue : Colors.black87,
-                    decoration:
-                        onTap != null
-                            ? TextDecoration.underline
-                            : TextDecoration.none,
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: onTap != null ? Colors.blue : Colors.black87,
+                      decoration:
+                          onTap != null
+                              ? TextDecoration.underline
+                              : TextDecoration.none,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
-    return Padding(padding: const EdgeInsets.only(bottom: 12), child: row);
   }
 
   static Future<void> _launchPhone(String phone) async {

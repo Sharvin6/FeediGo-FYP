@@ -1,8 +1,32 @@
+/*
+  DonorViewScheduleScreen: 
+
+  This screen fetches a specific donation record from Firebase Firestore using the donation ID
+  passed as an argument. It shows the donation summary, scheduled pickup date/time, recipient
+  contact info, additional notes, and any pickup proofs if the donation is completed.
+
+  Important Technical Terms / Concepts Used:
+    - StatefulWidget: Maintains state across rebuilds, here used to track the donationId argument.
+    - ModalRoute: Used to retrieve arguments passed via Navigator.
+    - FirebaseAuth: Provides the current signed-in user's UID for access control.
+    - FirebaseFirestore: NoSQL cloud database; used to fetch donation and recipient data.
+    - DocumentSnapshot & StreamBuilder: Real-time listening to a single document changes.
+    - Timestamp: Firestore timestamp, converted to DateTime for display.
+    - URL Launcher: `url_launcher` package used to open phone dialer or Google Maps.
+    - Conditional rendering: Widgets like recipient contact, notes, and proofs are shown only
+      if relevant data exists.
+    - UI Components: Container, Column, Row, ElevatedButton, InputDecorator, InkWell, etc.
+      used to structure interactive, visually appealing UI.
+    - Helper methods: `_formatDate`, `_formatTimeOfDay`, `_kv` for formatting and displaying data consistently.
+    - Access Control: Optional guard ensures only the donor can view their donation schedule.
+*/
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+/// Screen showing donation pickup schedule for the donor
 class DonorViewScheduleScreen extends StatefulWidget {
   const DonorViewScheduleScreen({super.key});
 
@@ -15,6 +39,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
   late final String donationId;
   bool _gotArgs = false;
 
+  /// Retrieve donationId from route arguments (only once)
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -27,6 +52,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
   Widget build(BuildContext context) {
     const orange = Color.fromARGB(255, 255, 109, 36);
 
+    // Guard against invalid donationId
     if (donationId.isEmpty) {
       return const Scaffold(body: Center(child: Text('Invalid donation id')));
     }
@@ -57,12 +83,15 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
           }
 
           final d = dSnap.data!.data()!;
+
+          // Helper to convert Firestore Timestamp to DateTime
           DateTime? asDate(dynamic v) {
             if (v is Timestamp) return v.toDate();
             if (v is DateTime) return v;
             return null;
           }
 
+          // Extract relevant donation info
           final title = (d['title'] ?? d['foodName'] ?? 'Donation').toString();
           final qty = (d['quantity'] ?? '').toString();
           final status = (d['status'] ?? 'pending').toString().toLowerCase();
@@ -73,11 +102,11 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
           final recipientId = (d['recipientId'] ?? '').toString();
           final donorId = (d['donorId'] ?? '').toString();
 
-          // Optional: guard so only the donor sees this screen for their donation
+          // Ensure current user is the donor
           final myUid = FirebaseAuth.instance.currentUser?.uid;
           final isDonor = myUid != null && donorId == myUid;
 
-          // Recipient contact stream
+          // Stream to fetch recipient contact info
           final recipientStream =
               recipientId.isEmpty
                   ? null
@@ -86,13 +115,11 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
                       .doc(recipientId)
                       .snapshots();
 
-          // Whether we have proofs
+          // Check if donation has pickup proofs
           final hasProofs =
               (d['pickupProof'] is Map) &&
               (((d['pickupProof']['photos'] ?? []) as List).isNotEmpty ||
-                  ((d['pickupProof']['note'] ?? '') as String)
-                      .toString()
-                      .isNotEmpty);
+                  ((d['pickupProof']['note'] ?? '') as String).isNotEmpty);
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -100,6 +127,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
               if (!isDonor)
                 _warn('You are viewing a donation that is not yours.'),
 
+              // Summary card with basic donation info
               _summaryCard(
                 title: title,
                 qty: qty,
@@ -109,7 +137,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Recipient Contact (read-only)
+              // Recipient Contact Info (read-only)
               if (recipientStream != null)
                 StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                   stream: recipientStream,
@@ -133,6 +161,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
                         loading: true,
                       );
                     }
+
                     final u = uSnap.data!.data()!;
                     final isOrg = u['isOrganization'] == true;
 
@@ -177,7 +206,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
 
               const SizedBox(height: 12),
 
-              // Schedule info & actions
+              // Pickup schedule info
               _formCard(
                 children: [
                   _fieldLabel('Pickup Date'),
@@ -199,7 +228,6 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
                             ),
                     icon: Icons.schedule,
                   ),
-
                   if (notes.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _fieldLabel('Additional Notes'),
@@ -210,7 +238,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
 
               const SizedBox(height: 12),
 
-              // View proofs (if completed)
+              // Show pickup proofs button if completed
               if (status == 'completed' && hasProofs)
                 SizedBox(
                   width: double.infinity,
@@ -219,11 +247,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
                       Navigator.pushNamed(
                         context,
                         '/confirm_pickup',
-                        arguments: {
-                          'donationId': donationId,
-                          'readOnly':
-                              true, // your ConfirmPickupScreen should respect this
-                        },
+                        arguments: {'donationId': donationId, 'readOnly': true},
                       );
                     },
                     icon: const Icon(Icons.photo_library_outlined),
@@ -245,7 +269,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
     );
   }
 
-  // ---------- helpers & small UI ----------
+  // ---------- Small UI Helpers ----------
 
   Widget _summaryCard({
     required String title,
@@ -255,7 +279,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
     required String status,
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -298,7 +322,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
     String? error,
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -318,9 +342,9 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
           ),
           const SizedBox(height: 10),
           if (loading) const LinearProgressIndicator(minHeight: 2),
-          if (!loading && error != null) ...[
-            Text(error, style: const TextStyle(color: Colors.black54)),
-          ] else if (!loading) ...[
+          if (!loading && error != null)
+            Text(error, style: const TextStyle(color: Colors.black54))
+          else if (!loading) ...[
             if ((orgName ?? '').isNotEmpty) _kv('Organization:', orgName!),
             if ((personName ?? '').isNotEmpty)
               _kv('Contact Name:', personName!),
@@ -363,7 +387,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
 
   Widget _formCard({required List<Widget> children}) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -489,7 +513,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
   Widget _center(String t) =>
       Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(t)));
 
-  // --- launchers ---
+  // --- External launchers ---
 
   static Future<void> _openMaps(String address) async {
     if (address.isEmpty) return;
@@ -509,7 +533,7 @@ class _DonorViewScheduleScreenState extends State<DonorViewScheduleScreen> {
   }
 }
 
-/// Status chip (matches style used elsewhere)
+/// Status chip for donation status
 class _StatusChip extends StatelessWidget {
   final String status;
   const _StatusChip({required this.status});

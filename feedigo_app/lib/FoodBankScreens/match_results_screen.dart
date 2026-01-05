@@ -1,3 +1,18 @@
+/*
+  MatchResultsScreen: 
+  Purpose:
+  - Shows user request summary and matching donations with score, distance, expiry, and address.
+  - Allows viewing map, donation details, or requesting the donation.
+
+  Key Points:
+  1. StatelessWidget: Displays data passed via Navigator arguments.
+  2. UI: `_queryCard` for request summary, `_matchTile` for donation cards with action buttons.
+  3. Data: Parses dates, calculates expiry vs need-by, formats distance and score.
+  4. Maps: Opens donation location using `url_launcher`.
+  5. Conditional: Handles empty matches and missing addresses gracefully.
+  6. Helpers: `_ddmmyyyy` formats dates, `_openMaps` launches Google Maps.
+*/
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -6,6 +21,7 @@ class MatchResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Retrieve arguments passed from previous screen
     final args = (ModalRoute.of(context)?.settings.arguments as Map?) ?? {};
     final query = (args['query'] as Map?) ?? {};
     final matches = ((args['matches'] as List?) ?? []).cast<Map>();
@@ -48,6 +64,7 @@ class MatchResultsScreen extends StatelessWidget {
     );
   }
 
+  /// Displays user request summary
   Widget _queryCard(Map q) {
     final qtyValue = (q['qtyValue'] ?? '').toString();
     final qtyUnit = (q['qtyUnit'] ?? '').toString();
@@ -83,6 +100,7 @@ class MatchResultsScreen extends StatelessWidget {
     );
   }
 
+  /// Displays a single matched donation card
   Widget _matchTile(BuildContext context, Map m) {
     final donationId = (m['donationId'] ?? '').toString();
     final title = (m['title'] ?? 'Donation') as String;
@@ -97,7 +115,7 @@ class MatchResultsScreen extends StatelessWidget {
 
     final distanceStr =
         (distanceKm is num)
-            ? '${(distanceKm as num).toDouble().toStringAsFixed(1)} km away'
+            ? '${(distanceKm).toStringAsFixed(1)} km away'
             : 'distance unknown';
 
     final expiry = expiryIso.isNotEmpty ? DateTime.tryParse(expiryIso) : null;
@@ -136,6 +154,7 @@ class MatchResultsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title and score
           Row(
             children: [
               Expanded(
@@ -188,6 +207,7 @@ class MatchResultsScreen extends StatelessWidget {
             Text(address, style: const TextStyle(fontSize: 13)),
           ],
           const SizedBox(height: 10),
+          // Buttons
           Wrap(
             spacing: 10,
             children: [
@@ -225,9 +245,11 @@ class MatchResultsScreen extends StatelessWidget {
     );
   }
 
+  /// Formats DateTime to DD/MM/YYYY
   String _ddmmyyyy(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
+  /// Opens Google Maps with given address
   Future<void> _openMaps(String address) async {
     final uri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}',

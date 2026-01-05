@@ -43,6 +43,7 @@ dependencies:
   cloud_functions: ^4.7.6
   geocoding: ^4.0.0
   google_maps_flutter: ^2.13.1
+  intl_phone_field: ^3.2.0
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,14 @@
+/*
+    Allows donors to post food donations with details like food type, quantity, expiry, and pickup location
+
+    - State management: Uses StatefulWidget with TextEditingController for form fields and local state for image, date, and geolocation.
+    - Form Validation: Uses Form widget with _formKey and validators to enforce required fields.
+    - Image Handling: Uses image_picker to allow users to take or select photos, with lost data handling.
+    - Geocoding: Uses a Cloud Function to geocode addresses, with a fallback to device geocoding via the geocoding package.
+    - Firebase Integration: Saves donation data to Firestore, uploads images to Firebase Storage, and retrieves user profile data from Firestore. 
+    - UX: Uses Cards, InputDecorators, and SnackBars for clear form sections and feedback.
+*/
+
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -7,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 
+/// Screen to post a new donation (Food, Quantity, Pickup info, optional photo)
 class PostDonationScreen extends StatefulWidget {
   const PostDonationScreen({super.key});
 
@@ -17,21 +29,21 @@ class PostDonationScreen extends StatefulWidget {
 class _PostDonationScreenState extends State<PostDonationScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // controllers
+  // ---- Text controllers ----
   final _foodNameCtrl = TextEditingController();
   final _qtyNumberCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
 
-  DateTime? _expiryDate;
-  bool _saving = false;
-  File? _imageFile;
+  // ---- State variables ----
+  DateTime? _expiryDate; // expiry date of donation
+  bool _saving = false; // disable button while saving
+  File? _imageFile; // picked image
 
-  // resolved coords for the address
-  double? _lat;
-  double? _lng;
+  double? _lat; // resolved latitude
+  double? _lng; // resolved longitude
 
-  // -------- Food Type (labels exactly match Request screen) --------
+  // ---- Food Types ----
   final List<Map<String, String>> _foodTypes = const [
     {'key': 'cooked', 'label': 'Cooked Meals'},
     {'key': 'produce', 'label': 'Fresh Produce'},
@@ -43,12 +55,12 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
   ];
   String? _selectedFoodTypeKey;
 
-  // Units (match Request screen)
+  // ---- Units ----
   final List<String> _units = ['kg', 'grams', 'plates', 'bottles', 'boxes'];
   String? _selectedUnit;
 
-  // “Use my saved address”
-  bool _useProfileAddress = false;
+  // ---- Profile Address ----
+  bool _useProfileAddress = false; // toggle checkbox
   String? _profileAddress;
   double? _profileLat;
   double? _profileLng;
@@ -56,11 +68,12 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProfileAddress();
+    _loadProfileAddress(); // load saved address (if any)
   }
 
   @override
   void dispose() {
+    // Dispose controllers to avoid memory leaks
     _foodNameCtrl.dispose();
     _qtyNumberCtrl.dispose();
     _locationCtrl.dispose();
@@ -68,6 +81,7 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
     super.dispose();
   }
 
+  /// Load user's saved address from Firestore profile
   Future<void> _loadProfileAddress() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -77,7 +91,7 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final u = snap.data() ?? {};
 
-      // Adjust to your schema
+      // Determine if user is an organization
       final isOrg = u['isOrganization'] == true;
       final addr =
           isOrg
@@ -101,23 +115,26 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
         });
       }
     } catch (_) {
-      // ignore; checkbox remains disabled
+      // ignore; if failed, checkbox remains disabled
     }
   }
 
+  /// Show date picker for expiry date
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: now,
       firstDate: now,
-      lastDate: now.add(const Duration(days: 60)),
+      lastDate: now.add(const Duration(days: 60)), // limit 2 months ahead
     );
     if (picked != null) setState(() => _expiryDate = picked);
   }
 
+  /// Pick image from camera or gallery
   Future<void> _pickImage() async {
     try {
+      // Ask user for source
       final source = await showDialog<ImageSource>(
         context: context,
         builder:
@@ -147,6 +164,7 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
       );
       if (x != null && mounted) setState(() => _imageFile = File(x.path));
 
+      // Handle lost data (rare case)
       final lost = await picker.retrieveLostData();
       if (!lost.isEmpty && lost.file != null && mounted) {
         setState(() => _imageFile = File(lost.file!.path));
@@ -156,19 +174,27 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
     }
   }
 
+  /// Upload picked image to Firebase Storage
   Future<String?> _uploadPhoto(String donationId) async {
     if (_imageFile == null) return null;
+
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final ref = FirebaseStorage.instance
         .ref()
         .child('donations')
         .child(uid)
         .child('$donationId.jpg');
+
+    // Upload file
     final task = await ref.putFile(_imageFile!);
+
+    // Get downloadable URL
     return await task.ref.getDownloadURL();
   }
 
+  /// Submit donation to Firestore
   Future<void> _submit() async {
+    // Validate form
     if (!_formKey.currentState!.validate()) return;
     if (_selectedFoodTypeKey == null) {
       _snack('Please select a food type.');
@@ -188,7 +214,7 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
 
-      // Decide the address to save & geocode
+      // Determine pickup address
       String address = _locationCtrl.text.trim();
       double? lat;
       double? lng;
@@ -198,7 +224,7 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
         lat = _profileLat;
         lng = _profileLng;
 
-        // If profile has no coords, geocode now
+        // Geocode if profile has no coordinates
         if (lat == null || lng == null) {
           final coords = await _geocodeAddress(address);
           lat = coords?.$1;
@@ -211,22 +237,23 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
         lng = coords?.$2;
       }
 
+      // Create new Firestore doc
       final doc = FirebaseFirestore.instance.collection('donations').doc();
 
+      // Get food type label
       final foodTypeLabel =
           _foodTypes.firstWhere(
             (t) => t['key'] == _selectedFoodTypeKey,
           )['label'];
 
+      // Prepare donation payload
       final payload = {
-        'id': doc.id, // string
-        'donorId': uid, // string
-        'foodName': _foodNameCtrl.text.trim(), // string
-        'quantity':
-            '${_qtyNumberCtrl.text.trim()} ${_selectedUnit ?? ''}', // string "N unit"
-        'status': 'pending', // string
+        'id': doc.id,
+        'donorId': uid,
+        'foodName': _foodNameCtrl.text.trim(),
+        'quantity': '${_qtyNumberCtrl.text.trim()} ${_selectedUnit ?? ''}',
+        'status': 'pending',
         'expiryAt': Timestamp.fromDate(
-          // Firestore Timestamp (end of day)
           DateTime(
             _expiryDate!.year,
             _expiryDate!.month,
@@ -236,22 +263,23 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
           ),
         ),
         'pickupInfo': {
-          'address': address, // string
-          if (lat != null) 'lat': lat.toDouble(), // double
-          if (lng != null) 'lng': lng.toDouble(), // double
+          'address': address,
+          if (lat != null) 'lat': lat.toDouble(),
+          if (lng != null) 'lng': lng.toDouble(),
         },
         'description':
             _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-        'photoUrl': null, // string|null
+        'photoUrl': null,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'category': _selectedFoodTypeKey, // string key (e.g., "cooked")
-        'foodTypeLabel':
-            foodTypeLabel, // string label (exactly matches request screen)
+        'category': _selectedFoodTypeKey,
+        'foodTypeLabel': foodTypeLabel,
       };
 
+      // Save to Firestore
       await doc.set(payload);
 
+      // Upload photo if exists
       final url = await _uploadPhoto(doc.id);
       if (url != null) {
         await doc.update({
@@ -274,11 +302,11 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
     }
   }
 
-  /// Try Cloud Function (LocationIQ). Fallback to local geocoding plugin.
+  /// Geocode an address using Cloud Function first, fallback to device geocoding
   Future<(double, double)?> _geocodeAddress(String address) async {
     if (address.isEmpty) return null;
 
-    // 1) Cloud Function (recommended — hides API key)
+    // 1) Cloud Function
     try {
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
       final callable = functions.httpsCallable('geocodeAddress');
@@ -291,9 +319,7 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
         _lng = lng;
       });
       return (lat, lng);
-    } catch (_) {
-      // proceed to fallback
-    }
+    } catch (_) {}
 
     // 2) Fallback: device geocoding
     try {
@@ -306,18 +332,18 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
         });
         return (loc.latitude, loc.longitude);
       }
-    } catch (_) {
-      // swallow
-    }
+    } catch (_) {}
 
     _snack('Could not locate that address—saved without coordinates.');
     return null;
   }
 
+  /// Show a SnackBar with a message
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  // ---- Build UI ----
   @override
   Widget build(BuildContext context) {
     const orange = Color.fromARGB(255, 255, 109, 36);
@@ -344,6 +370,7 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
             key: _formKey,
             child: Column(
               children: [
+                // Food Details Card
                 _card(
                   title: 'Food Details',
                   children: [
@@ -424,8 +451,10 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 14),
 
+                // Pickup Information Card
                 _card(
                   title: 'Pickup Information',
                   children: [
@@ -483,6 +512,8 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
                 ),
 
                 const SizedBox(height: 14),
+
+                // Additional Information Card
                 _card(
                   title: 'Additional Information',
                   children: [
@@ -495,8 +526,10 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
                     _photoPicker(onTap: _pickImage, image: _imageFile),
                   ],
                 ),
+
                 const SizedBox(height: 20),
 
+                // Submit button
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -530,7 +563,8 @@ class _PostDonationScreenState extends State<PostDonationScreen> {
     );
   }
 
-  // ---- UI helpers ----
+  // ---- UI Helpers ----
+
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,

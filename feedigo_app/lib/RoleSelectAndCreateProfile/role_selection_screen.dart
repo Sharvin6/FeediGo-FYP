@@ -1,6 +1,25 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+/*
+  This screen implements a role selection interface using PageView, providing an intuitive and modern onboarding experience.
+  Key technical points:
+    - Uses PageController to manage horizontal swipe navigation
+    - Role selection logic is decoupled from database operations
+    - Uses route arguments to support role switching
+    - Reusable UI components improve maintainability and scalability
+    - Animated indicators enhance UX feedback
+  This design follows clean architecture principles, keeping UI and data persistence responsibilities separate.
+*/
+
 import 'package:flutter/material.dart';
+
+// ===============================
+// ROLE SELECTION SCREEN
+// ===============================
+//
+// Allows new users to select how they want to participate in FeediGo.
+//  Roles available: Donor, Food Bank, Beneficiary.
+//
+//  Uses a PageView-based UI to present role information
+//  Role is passed to the profile setup screen
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -10,50 +29,36 @@ class RoleSelectionScreen extends StatefulWidget {
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+  final PageController _pageController =
+      PageController(); // Controller to manage horizontal page swiping
+  int _currentPage = 0; // Tracks the currently visible role page
 
-  void _saveUserRole(String role) async {
+  // --------------------------
+  // ROLE SELECTION HANDLER
+  // --------------------------
+  //  Navigates user to profile setup with selected role
+  //  Keeps role selection UI separate from database logic
+  void _onRoleSelected(String role) {
     final args = ModalRoute.of(context)?.settings.arguments;
+
+    // Used when user is switching roles from settings
     final fromSwitch = args is Map && args['fromSwitch'] == true;
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    final email = FirebaseAuth.instance.currentUser?.email;
-
-    if (uid != null) {
-      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-
-      final baseUpdate = <String, dynamic>{
-        'role': role,
-        'email': email,
-        'updated_at': FieldValue.serverTimestamp(),
-      };
-
-      if (!fromSwitch) {
-        baseUpdate['created_at'] = FieldValue.serverTimestamp();
-      }
-
-      await userRef.set(baseUpdate, SetOptions(merge: true));
-
-      if (fromSwitch) {
-        await userRef.collection('roleChangeHistory').add({
-          'newRole': role,
-          'timestamp': FieldValue.serverTimestamp(),
-          'triggeredBy': uid,
-        });
-      }
-
-      // forward args so profile setup knows this is a switch
-      Navigator.pushReplacementNamed(
-        context,
-        '/profile_setup',
-        arguments: {'fromSwitch': fromSwitch, 'targetRole': role},
-      );
-    }
+    Navigator.pushReplacementNamed(
+      context,
+      '/profile_setup',
+      arguments: {'fromSwitch': fromSwitch, 'targetRole': role},
+    );
   }
 
+  // --------------------------
+  // PAGE INDICATOR DOTS
+  // --------------------------
+  //  Shows which role page is currently active
+  //  Uses AnimatedContainer for smooth UI feedback
   Widget _buildIndicator(int index) {
-    bool isActive = index == _currentPage;
+    final bool isActive = index == _currentPage;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -66,6 +71,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     );
   }
 
+  // --------------------------
+  // UI BUILD
+  // --------------------------
   @override
   Widget build(BuildContext context) {
     const Color orange = Color(0xFFE26A2C);
@@ -77,6 +85,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 70),
+
+            // Screen title
             const Text(
               "Choose Your Role",
               style: TextStyle(
@@ -84,15 +94,22 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
-              textAlign: TextAlign.center,
             ),
+
             const SizedBox(height: 8),
+
+            // Subtitle
             const Text(
               "Select how you want to participate in\nFeediGo",
               style: TextStyle(fontSize: 13, color: Colors.white70),
               textAlign: TextAlign.center,
             ),
+
             const SizedBox(height: 14),
+
+            // --------------------------
+            // ROLE PAGES
+            // --------------------------
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -109,8 +126,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       'Connect with food banks and recipients',
                     ],
                     buttonText: 'Continue as Donor',
-                    onPressed: () => _saveUserRole('Donor'),
+                    onPressed: () => _onRoleSelected('Donor'),
                   ),
+
                   _buildRoleCard(
                     icon: Icons.apartment,
                     title: 'Food Bank',
@@ -122,8 +140,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       'Track pickup history',
                     ],
                     buttonText: 'Continue as Food Bank',
-                    onPressed: () => _saveUserRole('Food Bank'),
+                    onPressed: () => _onRoleSelected('Food Bank'),
                   ),
+
                   _buildRoleCard(
                     icon: Icons.groups,
                     title: 'Beneficiary',
@@ -135,16 +154,20 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       'Track donation request status',
                     ],
                     buttonText: 'Continue as Beneficiary',
-                    onPressed: () => _saveUserRole('Beneficiary'),
+                    onPressed: () => _onRoleSelected('Beneficiary'),
                   ),
                 ],
               ),
             ),
+
             const SizedBox(height: 16),
+
+            // Page indicator dots
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(3, _buildIndicator),
             ),
+
             const SizedBox(height: 24),
           ],
         ),
@@ -152,6 +175,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     );
   }
 
+  // --------------------------
+  // ROLE CARD COMPONENT
+  // --------------------------
+  //  Reusable UI widget to display each role
+  //  Improves modularity and reduces duplicated code
   Widget _buildRoleCard({
     required IconData icon,
     required String title,
@@ -171,10 +199,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Icon(icon, size: 48, color: const Color(0xFFE26A2C)),
+
               const SizedBox(height: 12),
+
               Text(
                 title,
                 style: const TextStyle(
@@ -182,53 +211,47 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               const SizedBox(height: 6),
+
               Text(
                 description,
                 style: const TextStyle(fontSize: 12, color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
+
               const SizedBox(height: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children:
-                    points
-                        .map(
-                          (point) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 3),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 5),
-                                  child: Icon(
-                                    Icons.circle,
-                                    size: 6,
-                                    color: Color(0xFFE26A2C),
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    point,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
+
+              // Role feature points
+              ...points.map(
+                (point) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.circle,
+                        size: 6,
+                        color: Color(0xFFE26A2C),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          point,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+
               const SizedBox(height: 20),
+
+              // Continue button
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFE26A2C),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

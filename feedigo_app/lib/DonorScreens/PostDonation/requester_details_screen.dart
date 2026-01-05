@@ -1,6 +1,30 @@
+/*
+  RequesterDetailsScreen: 
+  This screen is designed for donors to view who has requested a specific donation and either
+  accept or decline the request. It fetches data from **Firebase Firestore** and updates the
+  donation/request documents atomically using **batched writes**.
+
+  Important Technical Terms / Concepts Used:
+    - StatefulWidget: Maintains state across rebuilds, used here to track selected action
+      ('accept' or 'decline') and loading state (_busy).
+    - ModalRoute: Retrieves route arguments (donationId) passed via Navigator.
+    - FirebaseFirestore: NoSQL cloud database from Firebase, storing 'donations', 'donation_requests', and 'users'.
+    - StreamBuilder: Listens in real-time to Firestore streams to reflect any updates immediately.
+    - FutureBuilder: Fetches one-time data (requester/user profile) asynchronously.
+    - Batched Writes: Firestore feature to atomically update multiple documents, used to accept a request
+      and reject other pending requests simultaneously.
+    - Access Control: UI buttons are disabled when the action is already performed or during async operations.
+    - Conditional Rendering: Only shows fields if data exists, differentiates between individual and organization profiles.
+    - Safe getters: Functions to safely extract values from Firestore maps, preventing null errors.
+    - UI Components: Container, Column, Row, ElevatedButton, ListView used to display data in cards and rows.
+    - SnackBar: Shows success/error messages after actions.
+    - Async Handling: `_accept` and `_decline` handle Firestore operations asynchronously and update UI accordingly.
+*/
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+/// Screen to view and manage requests for a donation
 class RequesterDetailsScreen extends StatefulWidget {
   const RequesterDetailsScreen({super.key});
 
@@ -9,10 +33,12 @@ class RequesterDetailsScreen extends StatefulWidget {
 }
 
 class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
-  late final String donationId;
-  bool _busy = false;
-  String? _selectedAction; // 'accept' or 'decline'
+  late final String
+  donationId; // Donation document ID passed via route arguments
+  bool _busy = false; // Tracks if an async operation is ongoing
+  String? _selectedAction; // 'accept' or 'decline', to prevent double-tap
 
+  /// Retrieve donationId from route arguments
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -22,15 +48,18 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     const orange = Color.fromARGB(255, 255, 109, 36);
+
+    // Guard against invalid donation ID
     if (donationId.isEmpty) {
       return const Scaffold(body: Center(child: Text('Invalid donation')));
     }
 
+    // Firestore references & streams
     final donationRef = FirebaseFirestore.instance
         .collection('donations')
         .doc(donationId);
-
     final donationStream = donationRef.snapshots();
+
     final reqsStream =
         FirebaseFirestore.instance
             .collection('donation_requests')
@@ -54,12 +83,9 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
         child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: donationStream,
           builder: (context, dSnap) {
-            if (dSnap.hasError) {
-              return _center('Error: ${dSnap.error}');
-            }
-            if (!dSnap.hasData || !dSnap.data!.exists) {
+            if (dSnap.hasError) return _center('Error: ${dSnap.error}');
+            if (!dSnap.hasData || !dSnap.data!.exists)
               return const Center(child: CircularProgressIndicator());
-            }
 
             final donation = dSnap.data!.data()!;
             final title =
@@ -71,14 +97,13 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: reqsStream,
               builder: (context, rSnap) {
-                if (rSnap.hasError) {
-                  return _center('Error: ${rSnap.error}');
-                }
-                if (!rSnap.hasData) {
+                if (rSnap.hasError) return _center('Error: ${rSnap.error}');
+                if (!rSnap.hasData)
                   return const Center(child: CircularProgressIndicator());
-                }
 
                 final reqDocs = rSnap.data!.docs;
+
+                // No requests found
                 if (reqDocs.isEmpty) {
                   return Center(
                     child: Padding(
@@ -107,11 +132,12 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                   );
                 }
 
-                // Show the latest request (for now)
+                // Show the latest request
                 final req = reqDocs.first.data();
                 final reqId = reqDocs.first.id;
                 final requesterId = (req['recipientId'] ?? '').toString();
 
+                // Fetch requester profile info
                 return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                   future:
                       FirebaseFirestore.instance
@@ -119,9 +145,8 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                           .doc(requesterId)
                           .get(),
                   builder: (context, uSnap) {
-                    if (uSnap.hasError) {
+                    if (uSnap.hasError)
                       return _center('Failed to load requester.');
-                    }
                     final user = uSnap.data?.data() ?? <String, dynamic>{};
 
                     // ---- Safe getters ----
@@ -147,9 +172,11 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                     final orgPhone = s(org['phone']);
                     final orgAddr = s(org['address']);
 
+                    // Display donation & requester info
                     return ListView(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                       children: [
+                        // Donation summary card
                         _card(
                           title: 'Donation Summary',
                           children: [
@@ -160,6 +187,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                         ),
                         const SizedBox(height: 12),
 
+                        // Requester info card
                         _card(
                           title: 'Requester',
                           children:
@@ -188,22 +216,22 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                         ),
                         const SizedBox(height: 16),
 
+                        // Accept / Decline buttons
                         Row(
                           children: [
                             Expanded(
                               child: ElevatedButton.icon(
                                 icon: const Icon(Icons.check),
                                 label: const Text('Accept'),
-
                                 onPressed:
                                     (_busy ||
                                             _selectedAction == 'accept' ||
                                             req['status'] == 'accepted')
                                         ? null
                                         : () {
-                                          setState(() {
-                                            _selectedAction = 'accept';
-                                          });
+                                          setState(
+                                            () => _selectedAction = 'accept',
+                                          );
                                           _accept(reqId, requesterId);
                                         },
                                 style: ElevatedButton.styleFrom(
@@ -230,9 +258,9 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                                             req['status'] == 'rejected')
                                         ? null
                                         : () {
-                                          setState(() {
-                                            _selectedAction = 'decline';
-                                          });
+                                          setState(
+                                            () => _selectedAction = 'decline',
+                                          );
                                           _decline(reqId);
                                         },
                                 style: ElevatedButton.styleFrom(
@@ -250,10 +278,10 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
                             ),
                           ],
                         ),
+
+                        // Show status text after action
                         if (req['status'] != 'pending') ...[
-                          const SizedBox(
-                            height: 12,
-                          ), // Space between buttons and text
+                          const SizedBox(height: 12),
                           Center(
                             child: Text(
                               req['status'] == 'accepted'
@@ -279,11 +307,13 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
     );
   }
 
-  // ---------- accept / decline ----------
+  // ---------- Firestore Actions ----------
 
+  /// Accepts a donation request and rejects other pending requests
   Future<void> _accept(String reqId, String recipientId) async {
     if (_busy) return;
     setState(() => _busy = true);
+
     try {
       final db = FirebaseFirestore.instance;
       final donationRef = db.collection('donations').doc(donationId);
@@ -291,11 +321,13 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
 
       final batch = db.batch();
 
+      // Update the selected request as accepted
       batch.update(reqRef, {
         'status': 'accepted',
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      // Update donation doc with accepted request info
       batch.update(donationRef, {
         'status': 'accepted',
         'acceptedRequestId': reqId,
@@ -303,6 +335,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      // Reject other pending requests
       final others =
           await db
               .collection('donation_requests')
@@ -321,7 +354,6 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
       await batch.commit();
       if (!mounted) return;
       _snack('Request accepted.');
-      //Navigator.pop(context);
     } catch (_) {
       _snack('Failed to accept. Try again.');
     } finally {
@@ -329,6 +361,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
     }
   }
 
+  /// Declines a donation request and updates donation if no pending requests remain
   Future<void> _decline(String reqId) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -338,13 +371,11 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
     final reqRef = db.collection('donation_requests').doc(reqId);
 
     try {
-      // 1) Mark the request as rejected
       await reqRef.update({
         'status': 'rejected',
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // 2) Re-check pending requests for this donation
       final pendingQuery =
           await db
               .collection('donation_requests')
@@ -352,11 +383,9 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
               .where('status', isEqualTo: 'pending')
               .get();
 
-      // 3) If none remain, update the donation doc to "available/no active requests"
       if (pendingQuery.docs.isEmpty) {
         await donationRef.update({
-          // pick the status your app treats as "no active requests"
-          'status': 'pending', // or 'requested' if that's your app's convention
+          'status': 'pending', // no active requests
           'updatedAt': FieldValue.serverTimestamp(),
           'acceptedRequestId': null,
           'recipientId': null,
@@ -365,7 +394,6 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
 
       if (!mounted) return;
       _snack('Request rejected.');
-      //Navigator.pop(context);
     } catch (e, st) {
       debugPrint('Decline failed: $e\n$st');
       _snack('Failed to decline. Try again.');
@@ -374,7 +402,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
     }
   }
 
-  // ---------- ui helpers ----------
+  // ---------- UI Helpers ----------
 
   void _snack(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
@@ -384,7 +412,7 @@ class _RequesterDetailsScreenState extends State<RequesterDetailsScreen> {
 
   static Widget _cardImpl(String title, List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
