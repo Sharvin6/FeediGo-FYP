@@ -1,29 +1,3 @@
-/*
-  RequestFoodScreen: 
-
-  Purpose:
-  - Allows food banks to request bulk food donations.
-  - Supports selecting food type, quantity, and pickup address.
-  - Validates minimum bulk quantities and uses saved addresses from user profile.
-  - Resolves address to coordinates (latitude/longitude) using geocoding.
-  - Sends request to a Firebase Cloud Function for matching donations.
-
-  Key Technical Points:
-  1. StatefulWidget:- Maintains form state, user input, loading state, and resolved coordinates.
-  2. FirebaseAuth:- Retrieves current user UID to fetch saved address and profile.
-  3. FirebaseFirestore:- Retrieves user profile and organization info for saved address and lat/lng.
-  4. Cloud Functions (FirebaseFunctions):- Calls 'matchDonations' HTTPS callable function to find matching food donations.
-  5. Form Validation:- Validates selected food type, numeric quantity, and minimum bulk amounts per unit.
-  6. Geocoding:- Converts textual addresses into latitude/longitude using geocoding package.
-  7. UI Components:
-     - TextFormField, DropdownButtonFormField, SwitchListTile, ElevatedButton.
-     - Shows resolved coordinates if available.
-     - Dynamically updates UI when switching between saved address and manual input.
-  8. State Management:- Uses setState() to manage form, busy/loading states, and address updates.
-  9. Async Handling:- Async loading of saved address, geocoding, and cloud function call with proper mounted checks.
-  10. Bulk Quantities:- Minimum bulk quantities enforced via _minBulkByUnit Map.
-*/
-
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,14 +12,11 @@ class RequestFoodScreen extends StatefulWidget {
 }
 
 class _RequestFoodScreenState extends State<RequestFoodScreen> {
-  // Form key to validate inputs
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers for quantity and address input
   final _qtyValueCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
 
-  // Food type options
   static const List<String> _foodTypeOptions = [
     'Cooked Meals',
     'Fresh Produce',
@@ -57,7 +28,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
   ];
   String? _foodType;
 
-  // Quantity unit selection
   String _qtyUnit = 'kg';
   final List<String> _qtyUnits = const [
     'kg',
@@ -67,7 +37,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
     'boxes',
   ];
 
-  // Minimum bulk per unit
   final Map<String, double> _minBulkByUnit = const {
     'kg': 5,
     'grams': 500,
@@ -76,18 +45,15 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
     'boxes': 2,
   };
 
-  // Saved address state
   bool _useSavedAddress = true;
   String? _savedAddress;
   double? _savedLat;
   double? _savedLng;
   bool _loadingSaved = true;
 
-  // Current address coordinates
   double? _lat;
   double? _lng;
 
-  // Busy state for submit button
   bool _busy = false;
 
   @override
@@ -103,7 +69,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
     super.dispose();
   }
 
-  /// Loads saved address and coordinates from user profile
   Future<void> _loadSavedAddress() async {
     setState(() => _loadingSaved = true);
     try {
@@ -129,7 +94,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
         _savedLat = latNum?.toDouble();
         _savedLng = lngNum?.toDouble();
 
-        // Populate form fields if using saved address
         if (_useSavedAddress && _savedAddress != null) {
           _addressCtrl.text = _savedAddress!;
           _lat = _savedLat;
@@ -170,7 +134,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Minimum bulk warning
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -184,7 +147,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Food type selection
             _label('Food Type'),
             DropdownButtonFormField<String>(
               value: _foodType,
@@ -201,7 +163,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Quantity input
             _label('Quantity Needed (Bulk)'),
             Row(
               children: [
@@ -216,15 +177,23 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
                       hintText: 'e.g. 10',
                       border: OutlineInputBorder(),
                       isDense: true,
+                      // ADD THIS LINE BELOW
                       errorMaxLines: 2,
+                      // This allows the error text to wrap to a second line instead of clipping
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty)
+                      if (v == null || v.trim().isEmpty) {
                         return 'Enter quantity';
+                      }
                       final n = double.tryParse(v.trim());
-                      if (n == null || n <= 0) return 'Invalid number';
+                      if (n == null || n <= 0) {
+                        return 'Invalid number';
+                      }
                       final min = _minBulkByUnit[_qtyUnit]!;
-                      if (n < min) return 'Min. $min $_qtyUnit required';
+                      if (n < min) {
+                        // Shortening the text slightly also helps prevent overflow
+                        return 'Min. $min $_qtyUnit required';
+                      }
                       return null;
                     },
                   ),
@@ -251,7 +220,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Use saved address switch
             if (_loadingSaved)
               const LinearProgressIndicator(minHeight: 2)
             else
@@ -275,7 +243,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
                 subtitle: Text(_savedAddress ?? 'No saved address'),
               ),
 
-            // Address input
             _label('Pickup Location'),
             TextFormField(
               controller: _addressCtrl,
@@ -286,18 +253,17 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
               ),
             ),
 
-            // Display resolved coordinates
+            // ✅ LAT / LNG DISPLAY (NEW)
             if (_lat != null && _lng != null) ...[
               const SizedBox(height: 6),
               Text(
-                'Resolved: ${_lat!.toStringAsFixed(6)}, ${_lng!.toStringAsFixed(6)}',
+                'Resolved: ${_lat!.toStringAsFixed(6)}, '
+                '${_lng!.toStringAsFixed(6)}',
                 style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
             ],
 
             const SizedBox(height: 18),
-
-            // Submit button
             SizedBox(
               height: 52,
               child: ElevatedButton.icon(
@@ -324,7 +290,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
     child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700)),
   );
 
-  /// Convert address to latitude/longitude using geocoding package
   Future<(double, double)?> _geocode(String address) async {
     try {
       final list = await geocoding.locationFromAddress(address);
@@ -335,7 +300,6 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
     }
   }
 
-  /// Submit request to Cloud Function and navigate to match results
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -345,7 +309,7 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
       final qtyValue = double.parse(_qtyValueCtrl.text.trim());
       final address = _addressCtrl.text.trim();
 
-      // Force geocoding if not resolved yet
+      // 🔹 FORCE geocoding BEFORE navigation
       if ((_lat == null || _lng == null) && address.isNotEmpty) {
         final p = await _geocode(address);
         if (p != null) {
@@ -356,10 +320,10 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
         }
       }
 
-      // Call Firebase Cloud Function for donation matching
       final callable = FirebaseFunctions.instanceFor(
         region: 'us-central1',
       ).httpsCallable('matchDonations');
+
       final res = await callable.call({
         'requestedFoodType': _foodType,
         'qtyValue': qtyValue,
@@ -376,9 +340,8 @@ class _RequestFoodScreenState extends State<RequestFoodScreen> {
 
       if (!mounted) return;
 
-      await Future.delayed(
-        const Duration(milliseconds: 800),
-      ); // allow lat/lng display
+      // 🔹 delay so lat/lng is visible
+      await Future.delayed(const Duration(milliseconds: 800));
 
       Navigator.pushNamed(
         context,

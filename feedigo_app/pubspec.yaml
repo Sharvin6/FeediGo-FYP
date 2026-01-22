@@ -106,7 +106,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/page.png"
-
+  
 flutter_native_splash:
   color: "#FF6D24" 
   image: assets/images/image.png
