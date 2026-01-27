@@ -399,14 +399,19 @@ export const matchDonations = onCall(async (request) => {
       };
     });
 
-    // PRIORITY: food type match → quantity → expiry → distance → score
+    // PRIORITY: score → food type match → quantity → expiry → distance
     rows.sort((a, b) => {
-      // 1) food type exact match first
+      // 1) score: higher score first (unknown pushed to bottom)
+      const aScore = a.score ?? -Infinity;
+      const bScore = b.score ?? -Infinity;
+      if (aScore !== bScore) return bScore - aScore;
+
+      // 2) food type exact match
       const aMatch = a.foodTypeMatch ? 0 : 1;
       const bMatch = b.foodTypeMatch ? 0 : 1;
       if (aMatch !== bMatch) return aMatch - bMatch;
 
-      // 2) quantity: bucket first (ideal 0, acceptable 1, poor 2, unknown 3), then closeness to 1.0
+      // 3) quantity: bucket first, then closeness to ideal
       const aQB = qtyBucket(a.qtyRatio);
       const bQB = qtyBucket(b.qtyRatio);
       if (aQB !== bQB) return aQB - bQB;
@@ -415,19 +420,19 @@ export const matchDonations = onCall(async (request) => {
       const bQD = qtyDistanceFromIdeal(b.qtyRatio);
       if (aQD !== bQD) return aQD - bQD;
 
-      // 3) expiry: sooner first (unknown pushed to bottom)
+      // 4) expiry: sooner first (unknown last)
       const aExp = a.freshDaysLeft ?? 9999;
       const bExp = b.freshDaysLeft ?? 9999;
       if (aExp !== bExp) return aExp - bExp;
 
-      // 4) distance: nearer first (unknown pushed to bottom)
+      // 5) distance: nearer first (unknown last)
       const aDist = a.distanceKm ?? 9999;
       const bDist = b.distanceKm ?? 9999;
       if (aDist !== bDist) return aDist - bDist;
 
-      // 5) tie-breaker: model score (higher wins)
-      return b.score - a.score;
+      return 0;
     });
+
 
     const out = rows.slice(0, topKRequested);
 
